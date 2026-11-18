@@ -12,7 +12,10 @@ class SocketService {
       return this.socket;
     }
 
-    const host = (import.meta.env.VITE_SOCKET_URL as string) || window.location.origin;
+    const host = (import.meta.env.VITE_SOCKET_URL as string) || 
+      (typeof window !== 'undefined' && (window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app'))
+        ? 'https://medtrack-ln2u.onrender.com'
+        : window.location.origin);
     this.socket = io(host, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],

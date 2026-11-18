@@ -1,4 +1,8 @@
-const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api';
+const RENDER_BACKEND_URL = 'https://medtrack-ln2u.onrender.com';
+const API_BASE = (import.meta.env.VITE_API_URL as string) || 
+  (typeof window !== 'undefined' && (window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app') || window.location.hostname.includes('netlify.app'))
+    ? `${RENDER_BACKEND_URL}/api`
+    : '/api');
 
 // Pre-seeded Demo Data for Static Hosting Previews (GitHub Pages, Netlify)
 const DEFAULT_HOSPITALS = [
@@ -554,14 +558,9 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const isStaticHost = typeof window !== 'undefined' && 
-      (window.location.hostname.includes('github.io') || 
-       window.location.hostname.includes('netlify.app') || 
-       window.location.hostname.includes('vercel.app') || 
-       window.location.protocol === 'file:') &&
-      !import.meta.env.VITE_API_URL;
+    const isPureOffline = typeof window !== 'undefined' && window.location.protocol === 'file:';
 
-    if (isStaticHost) {
+    if (isPureOffline) {
       return this.handleStaticFallback<T>(endpoint, options);
     }
 
