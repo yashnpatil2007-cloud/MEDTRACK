@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: medtrack-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python seed.py
+    startCommand: gunicorn -w 1 --threads 100 -b 0.0.0.0:$PORT run:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: SUPERADMIN_ID
+        value: superadmin
+      - key: SUPERADMIN_PASSWORD
+        value: SuperAdmin@MedTrack2026

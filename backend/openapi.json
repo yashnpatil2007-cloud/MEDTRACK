@@ -1,0 +1,221 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "MEDTRACK Emergency Coordination Platform API",
+    "description": "Production RESTful specification for the MEDTRACK Ambulance & Hospital Coordination Platform.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000/api",
+      "description": "Local Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/register/ambulance": {
+      "post": {
+        "summary": "Register Ambulance Unit (Exactly 5 fields)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["full_name", "age", "phone_number", "ambulance_id", "password"],
+                "properties": {
+                  "full_name": { "type": "string" },
+                  "age": { "type": "integer" },
+                  "phone_number": { "type": "string" },
+                  "ambulance_id": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Ambulance registered successfully" },
+          "400": { "description": "Validation error" },
+          "409": { "description": "Duplicate ambulance ID" }
+        }
+      }
+    },
+    "/register/hospital": {
+      "post": {
+        "summary": "Register Hospital Center (Exactly 3 fields, pending admin verification)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["hospital_name", "hospital_id", "password"],
+                "properties": {
+                  "hospital_name": { "type": "string" },
+                  "hospital_id": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Hospital registered, pending admin review" },
+          "400": { "description": "Validation error" },
+          "409": { "description": "Duplicate hospital ID" }
+        }
+      }
+    },
+    "/login": {
+      "post": {
+        "summary": "Authenticate User (Ambulance, Hospital, Admin, SuperAdmin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id", "password"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JWT Bearer token and user details" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/hospital/beds": {
+      "put": {
+        "summary": "Update Hospital Bed Availability",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["total_beds", "occupied_beds"],
+                "properties": {
+                  "total_beds": { "type": "integer" },
+                  "occupied_beds": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated bed availability and calculated available beds" },
+          "400": { "description": "Constraint violation: occupied exceeds total or negative value" },
+          "403": { "description": "Forbidden: Only authorized hospital owning record may update" }
+        }
+      }
+    },
+    "/requests": {
+      "post": {
+        "summary": "Submit Emergency Request",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["patient_name", "patient_age", "emergency_level", "current_lat", "current_lng", "hospital_id"],
+                "properties": {
+                  "patient_name": { "type": "string" },
+                  "patient_age": { "type": "integer" },
+                  "emergency_level": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+                  "current_lat": { "type": "number" },
+                  "current_lng": { "type": "number" },
+                  "location_address": { "type": "string" },
+                  "is_manual_location": { "type": "boolean" },
+                  "hospital_id": { "type": "string" },
+                  "selected_route": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Request created in PENDING status and transmitted to hospital" },
+          "400": { "description": "Invalid payload or unverified hospital" }
+        }
+      }
+    },
+    "/requests/{id}/decision": {
+      "post": {
+        "summary": "Hospital Accepts or Rejects Emergency Request",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["decision"],
+                "properties": {
+                  "decision": { "type": "string", "enum": ["ACCEPTED", "REJECTED"] },
+                  "reason": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Decision confirmed and broadcasted" },
+          "400": { "description": "Invalid state transition" },
+          "403": { "description": "Forbidden" }
+        }
+      }
+    },
+    "/journeys/{id}/location": {
+      "post": {
+        "summary": "Stream Live GPS Location Update",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["latitude", "longitude"],
+                "properties": {
+                  "latitude": { "type": "number" },
+                  "longitude": { "type": "number" },
+                  "accuracy": { "type": "number" },
+                  "speed": { "type": "number" },
+                  "heading": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Location persisted and streamed to hospital map" },
+          "400": { "description": "Coordinates out of bounds or journey not active" }
+        }
+      }
+    }
+  }
+}
