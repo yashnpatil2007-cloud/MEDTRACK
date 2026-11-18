@@ -557,6 +557,7 @@ class ApiClient {
     const isStaticHost = typeof window !== 'undefined' && 
       (window.location.hostname.includes('github.io') || 
        window.location.hostname.includes('netlify.app') || 
+       window.location.hostname.includes('vercel.app') || 
        window.location.protocol === 'file:') &&
       !import.meta.env.VITE_API_URL;
 
