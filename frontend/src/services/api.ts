@@ -3,9 +3,10 @@ const API_BASE = (import.meta.env.VITE_API_URL as string) || '/api';
 // Pre-seeded Demo Data for Static Hosting Previews (GitHub Pages, Netlify)
 const DEFAULT_HOSPITALS = [
   {
-    id: 'HOSP-METRO',
+    id: 1,
+    hospital_id: 'HOSP-METRO',
     hospital_name: 'Metro General Hospital & Trauma Centre',
-    verification_status: 'VERIFIED',
+    verification_status: 'APPROVED',
     total_beds: 50,
     occupied_beds: 38,
     available_beds: 12,
@@ -15,9 +16,10 @@ const DEFAULT_HOSPITALS = [
     is_active: true,
   },
   {
-    id: 'HOSP-CITY',
+    id: 2,
+    hospital_id: 'HOSP-CITY',
     hospital_name: 'City Care Super Specialty Hospital',
-    verification_status: 'VERIFIED',
+    verification_status: 'APPROVED',
     total_beds: 35,
     occupied_beds: 25,
     available_beds: 10,
@@ -27,9 +29,10 @@ const DEFAULT_HOSPITALS = [
     is_active: true,
   },
   {
-    id: 'HOSP-STJUDE',
+    id: 3,
+    hospital_id: 'HOSP-STJUDE',
     hospital_name: 'St. Jude Emergency & Critical Care',
-    verification_status: 'VERIFIED',
+    verification_status: 'APPROVED',
     total_beds: 20,
     occupied_beds: 14,
     available_beds: 6,
@@ -42,23 +45,33 @@ const DEFAULT_HOSPITALS = [
 
 const DEFAULT_REQUESTS = [
   {
-    id: 'REQ-2026-101',
+    id: 1,
+    request_id: 'REQ-2026-101',
+    ambulance_id: 'AMB-101',
+    hospital_id: 'HOSP-METRO',
+    destination_hospital_name: 'Metro General Hospital & Trauma Centre',
     patient_name: 'Aarav Sharma',
     patient_age: 45,
     emergency_level: 'CRITICAL',
     status: 'ACCEPTED',
-    ambulance_id: 'AMB-101',
-    hospital_id: 'HOSP-METRO',
-    hospital_name: 'Metro General Hospital & Trauma Centre',
     current_lat: 18.5300,
     current_lng: 73.8450,
     is_manual_location: false,
     selected_route: 'Fastest Highway Transit',
     created_at: new Date(Date.now() - 15 * 60000).toISOString(),
+    has_active_journey: true,
     journey: {
-      id: 'JRN-2026-101',
-      status: 'IN_TRANSIT',
-      start_time: new Date(Date.now() - 10 * 60000).toISOString(),
+      id: 1,
+      journey_id: 'JRN-2026-101',
+      request_id: 'REQ-2026-101',
+      ambulance_id: 'AMB-101',
+      hospital_id: 'HOSP-METRO',
+      status: 'ACTIVE',
+      started_at: new Date(Date.now() - 10 * 60000).toISOString(),
+      start_lat: 18.5300,
+      start_lng: 73.8450,
+      dest_lat: 18.5204,
+      dest_lng: 73.8567,
       current_lat: 18.5250,
       current_lng: 73.8510,
       current_route: 'Fastest Highway Transit',
@@ -66,20 +79,22 @@ const DEFAULT_REQUESTS = [
     }
   },
   {
-    id: 'REQ-2026-102',
+    id: 2,
+    request_id: 'REQ-2026-102',
+    ambulance_id: 'AMB-101',
+    hospital_id: 'HOSP-METRO',
+    destination_hospital_name: 'Metro General Hospital & Trauma Centre',
     patient_name: 'Priya Verma',
     patient_age: 29,
     emergency_level: 'HIGH',
     status: 'PENDING',
-    ambulance_id: 'AMB-101',
-    hospital_id: 'HOSP-METRO',
-    hospital_name: 'Metro General Hospital & Trauma Centre',
     current_lat: 18.5150,
     current_lng: 73.8600,
     is_manual_location: true,
     location_address: 'Deccan Gymkhana junction',
     selected_route: 'Alternative Arterial Bypass',
     created_at: new Date(Date.now() - 5 * 60000).toISOString(),
+    has_active_journey: false,
   }
 ];
 
@@ -109,39 +124,142 @@ class ApiClient {
 
     // Auth Fallbacks
     if (endpoint === '/login' && method === 'POST') {
-      const { id, password } = body;
-      if (id === 'AMB-101') {
-        const user = { id: 'AMB-101', role: 'ambulance', ambulance_profile: { full_name: 'Rajesh Kumar', phone_number: '+91 98765 43210', age: 34 }, is_active: true };
+      const cleanId = (body.id || '').trim().toUpperCase();
+      
+      if (cleanId === 'AMB-101') {
+        const user = { 
+          id: 1, 
+          user_id: 'AMB-101', 
+          role: 'AMBULANCE', 
+          is_active: true, 
+          is_verified: true, 
+          ambulance_profile: { 
+            id: 1,
+            ambulance_id: 'AMB-101',
+            full_name: 'Marcus Vance', 
+            phone_number: '+91 98765 43210', 
+            age: 34,
+            current_lat: 18.5204,
+            current_lng: 73.8567,
+            status: 'AVAILABLE'
+          } 
+        };
+        this.setStorage('medtrack_token', 'demo-token-amb');
+        this.setStorage('medtrack_user', user);
         return { success: true, token: 'demo-token-amb', user, message: 'Authentication successful (Cloud Demo Mode)' } as T;
       }
-      if (id === 'HOSP-METRO') {
-        const user = { id: 'HOSP-METRO', role: 'hospital', hospital_profile: { hospital_name: 'Metro General Hospital', verification_status: 'VERIFIED', total_beds: 50, occupied_beds: 38, available_beds: 12, latitude: 18.5204, longitude: 73.8567 }, is_active: true };
+      
+      if (cleanId === 'HOSP-METRO') {
+        const user = { 
+          id: 2, 
+          user_id: 'HOSP-METRO', 
+          role: 'HOSPITAL', 
+          is_active: true, 
+          is_verified: true, 
+          hospital_profile: { 
+            id: 1,
+            hospital_id: 'HOSP-METRO',
+            hospital_name: 'Metro General Hospital & Trauma Centre', 
+            verification_status: 'APPROVED', 
+            total_beds: 50, 
+            occupied_beds: 38, 
+            available_beds: 12, 
+            latitude: 18.5204, 
+            longitude: 73.8567,
+            address: 'Shivajinagar, Pune, Maharashtra 411005',
+            is_active: true
+          } 
+        };
+        this.setStorage('medtrack_token', 'demo-token-hosp');
+        this.setStorage('medtrack_user', user);
         return { success: true, token: 'demo-token-hosp', user, message: 'Authentication successful (Cloud Demo Mode)' } as T;
       }
-      if (id === 'admin1') {
-        const user = { id: 'admin1', role: 'admin', full_name: 'Admin User', is_active: true };
+      
+      if (cleanId === 'ADMIN1') {
+        const user = { 
+          id: 3, 
+          user_id: 'admin1', 
+          role: 'ADMIN', 
+          is_active: true, 
+          is_verified: true, 
+          full_name: 'System Administrator' 
+        };
+        this.setStorage('medtrack_token', 'demo-token-admin');
+        this.setStorage('medtrack_user', user);
         return { success: true, token: 'demo-token-admin', user, message: 'Authentication successful (Cloud Demo Mode)' } as T;
       }
-      if (id === 'superadmin') {
-        const user = { id: 'superadmin', role: 'superadmin', full_name: 'Super Administrator', is_active: true };
+      
+      if (cleanId === 'SUPERADMIN') {
+        const user = { 
+          id: 4, 
+          user_id: 'superadmin', 
+          role: 'SUPERADMIN', 
+          is_active: true, 
+          is_verified: true, 
+          full_name: 'Super Administrator' 
+        };
+        this.setStorage('medtrack_token', 'demo-token-super');
+        this.setStorage('medtrack_user', user);
         return { success: true, token: 'demo-token-super', user, message: 'Authentication successful (Cloud Demo Mode)' } as T;
       }
 
-      // Check registered users
+      // Check registered users in storage
       const users = this.getStorage<any[]>('medtrack_custom_users', []);
-      const found = users.find(u => u.id === id);
+      const found = users.find(u => u.user_id.toUpperCase() === cleanId);
       if (found) {
-        return { success: true, token: `demo-token-${id}`, user: found, message: 'Authentication successful' } as T;
+        this.setStorage('medtrack_token', `demo-token-${found.user_id}`);
+        this.setStorage('medtrack_user', found);
+        return { success: true, token: `demo-token-${found.user_id}`, user: found, message: 'Authentication successful' } as T;
       }
 
       // Allow login with newly created IDs for seamless friend review
-      if (id.startsWith('AMB-')) {
-        const user = { id, role: 'ambulance', ambulance_profile: { full_name: 'Ambulance Operator', phone_number: '+91 98000 00000', age: 30 }, is_active: true };
-        return { success: true, token: `demo-token-${id}`, user, message: 'Authentication successful' } as T;
+      if (cleanId.startsWith('AMB-')) {
+        const user = { 
+          id: Date.now(), 
+          user_id: body.id, 
+          role: 'AMBULANCE', 
+          is_active: true, 
+          is_verified: true,
+          ambulance_profile: { 
+            id: Date.now(),
+            ambulance_id: body.id,
+            full_name: 'Ambulance Operator', 
+            phone_number: '+91 98000 00000', 
+            age: 30,
+            status: 'AVAILABLE',
+            current_lat: 18.5204,
+            current_lng: 73.8567
+          }
+        };
+        this.setStorage('medtrack_token', `demo-token-${body.id}`);
+        this.setStorage('medtrack_user', user);
+        return { success: true, token: `demo-token-${body.id}`, user, message: 'Authentication successful' } as T;
       }
-      if (id.startsWith('HOSP-')) {
-        const user = { id, role: 'hospital', hospital_profile: { hospital_name: 'Emergency Medical Hospital', verification_status: 'VERIFIED', total_beds: 40, occupied_beds: 25, available_beds: 15, latitude: 18.5204, longitude: 73.8567 }, is_active: true };
-        return { success: true, token: `demo-token-${id}`, user, message: 'Authentication successful' } as T;
+
+      if (cleanId.startsWith('HOSP-')) {
+        const user = { 
+          id: Date.now(), 
+          user_id: body.id, 
+          role: 'HOSPITAL', 
+          is_active: true, 
+          is_verified: true,
+          hospital_profile: { 
+            id: Date.now(),
+            hospital_id: body.id,
+            hospital_name: 'Emergency Medical Hospital', 
+            verification_status: 'APPROVED', 
+            total_beds: 40, 
+            occupied_beds: 25, 
+            available_beds: 15, 
+            latitude: 18.5204, 
+            longitude: 73.8567,
+            address: 'City Medical Zone',
+            is_active: true
+          }
+        };
+        this.setStorage('medtrack_token', `demo-token-${body.id}`);
+        this.setStorage('medtrack_user', user);
+        return { success: true, token: `demo-token-${body.id}`, user, message: 'Authentication successful' } as T;
       }
 
       throw new Error('Invalid credentials. Use demo credentials AMB-101 / HOSP-METRO / admin1 / superadmin');
@@ -149,35 +267,76 @@ class ApiClient {
 
     if (endpoint === '/register/ambulance' && method === 'POST') {
       const user = {
-        id: body.ambulance_id,
-        role: 'ambulance',
-        ambulance_profile: { full_name: body.full_name, phone_number: body.phone_number, age: body.age },
+        id: Date.now(),
+        user_id: body.ambulance_id,
+        role: 'AMBULANCE',
         is_active: true,
+        is_verified: true,
+        ambulance_profile: { 
+          id: Date.now(),
+          ambulance_id: body.ambulance_id,
+          full_name: body.full_name, 
+          phone_number: body.phone_number, 
+          age: body.age,
+          status: 'AVAILABLE',
+          current_lat: 18.5204,
+          current_lng: 73.8567
+        },
       };
       const users = this.getStorage<any[]>('medtrack_custom_users', []);
       users.push(user);
       this.setStorage('medtrack_custom_users', users);
-      return { success: true, token: `demo-token-${user.id}`, user, message: 'Ambulance registered successfully!' } as T;
+      this.setStorage('medtrack_token', `demo-token-${user.user_id}`);
+      this.setStorage('medtrack_user', user);
+      return { success: true, token: `demo-token-${user.user_id}`, user, message: 'Ambulance registered successfully!' } as T;
     }
 
     if (endpoint === '/register/hospital' && method === 'POST') {
       const user = {
-        id: body.hospital_id,
-        role: 'hospital',
-        hospital_profile: { hospital_name: body.hospital_name, verification_status: 'VERIFIED', total_beds: 30, occupied_beds: 15, available_beds: 15, latitude: 18.5204, longitude: 73.8567 },
+        id: Date.now(),
+        user_id: body.hospital_id,
+        role: 'HOSPITAL',
         is_active: true,
+        is_verified: true,
+        hospital_profile: { 
+          id: Date.now(),
+          hospital_id: body.hospital_id,
+          hospital_name: body.hospital_name, 
+          verification_status: 'APPROVED', 
+          total_beds: 30, 
+          occupied_beds: 15, 
+          available_beds: 15, 
+          latitude: 18.5204, 
+          longitude: 73.8567,
+          address: 'Emergency Healthcare Wing',
+          is_active: true
+        },
       };
       const users = this.getStorage<any[]>('medtrack_custom_users', []);
       users.push(user);
       this.setStorage('medtrack_custom_users', users);
-      return { success: true, token: `demo-token-${user.id}`, user, message: 'Hospital registered successfully and ready!' } as T;
+      this.setStorage('medtrack_token', `demo-token-${user.user_id}`);
+      this.setStorage('medtrack_user', user);
+      return { success: true, token: `demo-token-${user.user_id}`, user, message: 'Hospital registered successfully and ready!' } as T;
     }
 
     if (endpoint === '/me') {
       const user = this.getStorage<any>('medtrack_user', {
-        id: 'AMB-101',
-        role: 'ambulance',
-        ambulance_profile: { full_name: 'Rajesh Kumar', phone_number: '+91 98765 43210', age: 34 }
+        id: 1,
+        user_id: 'AMB-101',
+        role: 'AMBULANCE',
+        is_active: true,
+        is_verified: true,
+        ambulance_profile: { 
+          id: 1,
+          ambulance_id: 'AMB-101',
+          full_name: 'Marcus Vance', 
+          phone_number: '+91 98765 43210', 
+          age: 34,
+          status: 'AVAILABLE',
+          current_lat: 18.5204,
+          current_lng: 73.8567
+        }
       });
       return { success: true, user } as T;
     }
@@ -190,7 +349,7 @@ class ApiClient {
     if (endpoint === '/hospital/beds' && method === 'PUT') {
       const hospitals = this.getStorage<any[]>('medtrack_demo_hospitals', DEFAULT_HOSPITALS);
       const { total_beds, occupied_beds } = body;
-      const updated = hospitals.map(h => h.id === 'HOSP-METRO' ? { ...h, total_beds, occupied_beds, available_beds: total_beds - occupied_beds } : h);
+      const updated = hospitals.map(h => h.hospital_id === 'HOSP-METRO' ? { ...h, total_beds, occupied_beds, available_beds: total_beds - occupied_beds } : h);
       this.setStorage('medtrack_demo_hospitals', updated);
       return { success: true, hospital: updated[0], message: 'Bed availability updated' } as T;
     }
@@ -198,21 +357,24 @@ class ApiClient {
     if (endpoint.startsWith('/requests') || endpoint.startsWith('/hospital/requests')) {
       let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
       if (endpoint === '/requests' && method === 'POST') {
+        const reqId = `REQ-2026-${Math.floor(100 + Math.random() * 900)}`;
         const newReq = {
-          id: `REQ-${Date.now().toString().slice(-4)}`,
+          id: Date.now(),
+          request_id: reqId,
+          ambulance_id: body.ambulance_id || 'AMB-101',
+          hospital_id: body.hospital_id,
+          destination_hospital_name: body.hospital_name || 'Metro General Hospital & Trauma Centre',
           patient_name: body.patient_name,
           patient_age: body.patient_age,
           emergency_level: body.emergency_level,
           status: 'PENDING',
-          ambulance_id: 'AMB-101',
-          hospital_id: body.hospital_id,
-          hospital_name: 'Metro General Hospital & Trauma Centre',
-          current_lat: body.current_lat,
-          current_lng: body.current_lng,
-          is_manual_location: body.is_manual_location,
-          location_address: body.location_address,
-          selected_route: body.selected_route || 'Primary Direct Route',
+          current_lat: body.current_lat || 18.5204,
+          current_lng: body.current_lng || 73.8567,
+          is_manual_location: !!body.is_manual_location,
+          location_address: body.location_address || 'Current Position',
+          selected_route: body.selected_route || 'Fastest Highway Transit',
           created_at: new Date().toISOString(),
+          has_active_journey: false
         };
         requests = [newReq, ...requests];
         this.setStorage('medtrack_demo_requests', requests);
@@ -222,32 +384,59 @@ class ApiClient {
     }
 
     if (endpoint.includes('/decision') && method === 'POST') {
-      const reqId = endpoint.split('/')[2];
+      const parts = endpoint.split('/');
+      const reqId = parts[2];
       const requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
-      const updated = requests.map(r => r.id === reqId ? { ...r, status: body.decision } : r);
+      const updated = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, status: body.decision } : r);
       this.setStorage('medtrack_demo_requests', updated);
-      return { success: true, request: updated.find(r => r.id === reqId), message: `Request marked as ${body.decision}` } as T;
+      return { success: true, request: updated.find(r => r.request_id === reqId || String(r.id) === reqId), message: `Request marked as ${body.decision}` } as T;
     }
 
     if (endpoint.includes('/start') && method === 'POST') {
       const journey = {
-        id: `JRN-${Date.now().toString().slice(-4)}`,
-        status: 'IN_TRANSIT',
-        start_time: new Date().toISOString(),
+        id: 1,
+        journey_id: `JRN-2026-${Math.floor(100 + Math.random() * 900)}`,
+        request_id: 'REQ-2026-101',
+        ambulance_id: 'AMB-101',
+        hospital_id: 'HOSP-METRO',
+        status: 'ACTIVE',
+        started_at: new Date().toISOString(),
+        start_lat: 18.5300,
+        start_lng: 73.8450,
+        dest_lat: 18.5204,
+        dest_lng: 73.8567,
         current_lat: 18.5204,
         current_lng: 73.8567,
         current_route: 'Fastest Highway Transit',
-        speed: 45.0,
+        speed: 48.0,
       };
       return { success: true, journey, message: 'Emergency journey started' } as T;
     }
 
     if (endpoint.includes('/end') && method === 'POST') {
-      return { success: true, journey: { status: 'COMPLETED', end_time: new Date().toISOString() }, message: 'Journey completed safely' } as T;
+      return { success: true, journey: { status: 'COMPLETED', completed_at: new Date().toISOString() }, message: 'Journey completed safely' } as T;
     }
 
     if (endpoint.startsWith('/journeys/active')) {
       return { success: true, active_journeys: [DEFAULT_REQUESTS[0].journey], count: 1 } as T;
+    }
+
+    if (endpoint.startsWith('/journeys/')) {
+      return { success: true, journey: DEFAULT_REQUESTS[0].journey } as T;
+    }
+
+    if (endpoint.startsWith('/routes/calculate')) {
+      return {
+        success: true,
+        routes: [
+          { name: 'Fastest Highway Transit (Siren Priority)', distance_km: 7.2, estimated_minutes: 11, polyline: [] },
+          { name: 'Alternative Arterial Bypass', distance_km: 8.5, estimated_minutes: 15, polyline: [] }
+        ],
+        disclosure: {
+          type: 'SIMULATED_TRAFFIC_ADVISORY',
+          note: 'Calculated using priority emergency corridor parameters.'
+        }
+      } as T;
     }
 
     if (endpoint === '/notifications') {
@@ -280,6 +469,35 @@ class ApiClient {
       } as T;
     }
 
+    if (endpoint.startsWith('/admin/hospitals')) {
+      const hospitals = this.getStorage<any[]>('medtrack_demo_hospitals', DEFAULT_HOSPITALS);
+      return { success: true, hospitals, count: hospitals.length } as T;
+    }
+
+    if (endpoint.startsWith('/admin/ambulances')) {
+      const ambulances = [
+        { id: 1, ambulance_id: 'AMB-101', full_name: 'Marcus Vance', phone_number: '+91 98765 43210', age: 34, status: 'AVAILABLE', is_active: true },
+        { id: 2, ambulance_id: 'AMB-102', full_name: 'Elena Rostova', phone_number: '+91 98765 43211', age: 29, status: 'DISPATCHED', is_active: true },
+        { id: 3, ambulance_id: 'AMB-103', full_name: 'David Kim', phone_number: '+91 98765 43212', age: 41, status: 'AVAILABLE', is_active: true }
+      ];
+      return { success: true, ambulances, count: ambulances.length } as T;
+    }
+
+    if (endpoint.startsWith('/admin/users')) {
+      const users = [
+        { id: 1, user_id: 'AMB-101', role: 'AMBULANCE', is_active: true, is_verified: true, created_at: new Date().toISOString() },
+        { id: 2, user_id: 'HOSP-METRO', role: 'HOSPITAL', is_active: true, is_verified: true, created_at: new Date().toISOString() },
+        { id: 3, user_id: 'admin1', role: 'ADMIN', is_active: true, is_verified: true, created_at: new Date().toISOString() },
+        { id: 4, user_id: 'superadmin', role: 'SUPERADMIN', is_active: true, is_verified: true, created_at: new Date().toISOString() },
+      ];
+      return { success: true, users, count: users.length } as T;
+    }
+
+    if (endpoint.startsWith('/admin/requests')) {
+      const requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
+      return { success: true, requests, count: requests.length } as T;
+    }
+
     if (endpoint.startsWith('/admin/analytics')) {
       return {
         success: true,
@@ -296,10 +514,35 @@ class ApiClient {
       return {
         success: true,
         audit_logs: [
-          { id: 1, user_id: 'AMB-101', role: 'ambulance', action: 'CREATE_REQUEST', details: 'Created Critical request REQ-2026-101', timestamp: new Date().toISOString() },
-          { id: 2, user_id: 'HOSP-METRO', role: 'hospital', action: 'ACCEPT_REQUEST', details: 'Accepted emergency request REQ-2026-101', timestamp: new Date().toISOString() },
+          { id: 1, user_id: 'AMB-101', role: 'AMBULANCE', action: 'CREATE_REQUEST', details: 'Created Critical request REQ-2026-101', timestamp: new Date().toISOString() },
+          { id: 2, user_id: 'HOSP-METRO', role: 'HOSPITAL', action: 'ACCEPT_REQUEST', details: 'Accepted emergency request REQ-2026-101', timestamp: new Date().toISOString() },
         ],
         count: 2
+      } as T;
+    }
+
+    if (endpoint.startsWith('/superadmin/health')) {
+      return {
+        success: true,
+        health: {
+          database: 'healthy',
+          active_connections: 4,
+          websocket_status: 'operational',
+          memory_mb: 184.2,
+          uptime_seconds: 7320,
+          version: '2.0.0-PROD'
+        }
+      } as T;
+    }
+
+    if (endpoint.startsWith('/superadmin/settings')) {
+      return {
+        success: true,
+        settings: [
+          { key: 'MAX_DISPATCH_RADIUS_KM', value: '35', description: 'Maximum ambulance response perimeter' },
+          { key: 'AUTO_REJECT_TIMEOUT_MINUTES', value: '10', description: 'Triage auto-rejection window' },
+          { key: 'SIREN_PRIORITY_ROUTING', value: 'ENABLED', description: 'Emergency corridor priority clearance' }
+        ]
       } as T;
     }
 
@@ -311,6 +554,16 @@ class ApiClient {
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const isStaticHost = typeof window !== 'undefined' && 
+      (window.location.hostname.includes('github.io') || 
+       window.location.hostname.includes('netlify.app') || 
+       window.location.protocol === 'file:') &&
+      !import.meta.env.VITE_API_URL;
+
+    if (isStaticHost) {
+      return this.handleStaticFallback<T>(endpoint, options);
+    }
+
     const token = this.getToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -328,7 +581,7 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        if (response.status === 404 || response.status === 502 || response.status === 503) {
+        if (response.status === 405 || response.status === 404 || response.status === 501 || response.status === 502 || response.status === 503 || response.status === 504) {
           // If on static preview (GitHub Pages/Netlify) without active proxy
           return this.handleStaticFallback<T>(endpoint, options);
         }
@@ -345,7 +598,7 @@ class ApiClient {
       return await response.json();
     } catch (err: any) {
       // If network failure (e.g. backend not reachable on static host)
-      if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('Load failed'))) {
+      if (err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('Load failed') || err.message.includes('status 405') || err.message.includes('status 404'))) {
         return this.handleStaticFallback<T>(endpoint, options);
       }
       throw err;
