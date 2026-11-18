@@ -4,16 +4,22 @@ from app.extensions import db
 class RequestStatus:
     PENDING = 'PENDING'
     ACCEPTED = 'ACCEPTED'
-    REJECTED = 'REJECTED'
+    BOOKED = 'BOOKED'
+    PATIENT_PICKED_UP = 'PATIENT PICKED UP'
     JOURNEY_ACTIVE = 'JOURNEY_ACTIVE'
+    ON_JOURNEY = 'ON JOURNEY'
     COMPLETED = 'COMPLETED'
     CANCELLED = 'CANCELLED'
+    REJECTED = 'REJECTED'
 
     VALID_TRANSITIONS = {
-        PENDING: [ACCEPTED, REJECTED, CANCELLED],
-        ACCEPTED: [JOURNEY_ACTIVE, CANCELLED],
-        REJECTED: [],
+        PENDING: [ACCEPTED, BOOKED, REJECTED, CANCELLED],
+        ACCEPTED: [BOOKED, PATIENT_PICKED_UP, JOURNEY_ACTIVE, ON_JOURNEY, CANCELLED],
+        BOOKED: [PATIENT_PICKED_UP, CANCELLED],
+        PATIENT_PICKED_UP: [ON_JOURNEY, JOURNEY_ACTIVE, CANCELLED],
         JOURNEY_ACTIVE: [COMPLETED, CANCELLED],
+        ON_JOURNEY: [COMPLETED, CANCELLED],
+        REJECTED: [],
         COMPLETED: [],
         CANCELLED: []
     }
@@ -56,6 +62,7 @@ class EmergencyRequest(db.Model):
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     accepted_at = db.Column(db.DateTime, nullable=True)
+    patient_picked_up_at = db.Column(db.DateTime, nullable=True)
     rejected_at = db.Column(db.DateTime, nullable=True)
     journey_started_at = db.Column(db.DateTime, nullable=True)
     completed_at = db.Column(db.DateTime, nullable=True)
@@ -77,12 +84,14 @@ class EmergencyRequest(db.Model):
         
         self.status = new_status
         now = datetime.utcnow()
-        if new_status == RequestStatus.ACCEPTED:
+        if new_status in [RequestStatus.ACCEPTED, RequestStatus.BOOKED]:
             self.accepted_at = now
+        elif new_status == RequestStatus.PATIENT_PICKED_UP:
+            self.patient_picked_up_at = now
         elif new_status == RequestStatus.REJECTED:
             self.rejected_at = now
             self.rejection_reason = reason
-        elif new_status == RequestStatus.JOURNEY_ACTIVE:
+        elif new_status in [RequestStatus.JOURNEY_ACTIVE, RequestStatus.ON_JOURNEY]:
             self.journey_started_at = now
         elif new_status == RequestStatus.COMPLETED:
             self.completed_at = now
@@ -107,11 +116,12 @@ class EmergencyRequest(db.Model):
             'rejection_reason': self.rejection_reason,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None,
+            'patient_picked_up_at': self.patient_picked_up_at.isoformat() if self.patient_picked_up_at else None,
             'rejected_at': self.rejected_at.isoformat() if self.rejected_at else None,
             'journey_started_at': self.journey_started_at.isoformat() if self.journey_started_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'cancelled_at': self.cancelled_at.isoformat() if self.cancelled_at else None,
-            'has_active_journey': bool(self.journey and self.journey.status == 'ACTIVE')
+            'has_active_journey': bool(self.journey and self.journey.status in ['ACTIVE', 'ON JOURNEY'])
         }
         if include_sensitive:
             data['patient_name'] = self.patient_name

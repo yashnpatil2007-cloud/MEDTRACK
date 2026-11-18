@@ -18,6 +18,12 @@ import { NewEmergencyRequest } from './pages/Ambulance/NewEmergencyRequest';
 import { LiveTracking } from './pages/Ambulance/LiveTracking';
 import { JourneyHistory } from './pages/Ambulance/JourneyHistory';
 import { AmbulanceSettings } from './pages/Ambulance/AmbulanceSettings';
+import { RouteSelectionView } from './pages/Ambulance/RouteSelectionView';
+import { PatientView } from './pages/Ambulance/PatientView';
+import { NearbyHospitalsView } from './pages/Ambulance/NearbyHospitalsView';
+
+// Common Intercom / Communication
+import { CommunicationCenter } from './pages/Common/CommunicationCenter';
 
 // Hospital Pages
 import { HospitalDashboard } from './pages/Hospital/HospitalDashboard';
@@ -101,10 +107,23 @@ const AppContent: React.FC = () => {
       switch (currentTab) {
         case 'overview':
           return <AmbulanceDashboard onNavigateTab={setCurrentTab} />;
+        case 'patient':
+          return <PatientView onNavigateTab={setCurrentTab} />;
+        case 'route':
+          return (
+            <RouteSelectionView
+              onNavigateTab={setCurrentTab}
+              onStartJourneySuccess={() => setCurrentTab('live-tracking')}
+            />
+          );
+        case 'nearby-hospitals':
+          return <NearbyHospitalsView onNavigateTab={setCurrentTab} />;
+        case 'communication':
+          return <CommunicationCenter onNavigateTab={setCurrentTab} />;
         case 'new-request':
           return (
             <NewEmergencyRequest
-              onSuccess={() => setCurrentTab('live-tracking')}
+              onSuccess={() => setCurrentTab('patient')}
               onCancel={() => setCurrentTab('overview')}
             />
           );
@@ -126,6 +145,7 @@ const AppContent: React.FC = () => {
       switch (currentTab) {
         case 'overview':
           return <HospitalDashboard onNavigateTab={setCurrentTab} />;
+        case 'incoming-ambulance':
         case 'incoming-requests':
           return <IncomingRequests />;
         case 'active-ambulances':
@@ -133,6 +153,8 @@ const AppContent: React.FC = () => {
           return <ActiveAmbulances />;
         case 'bed-availability':
           return <BedAvailability />;
+        case 'communication':
+          return <CommunicationCenter onNavigateTab={setCurrentTab} />;
         case 'history':
           return <HospitalHistory />;
         case 'notifications':

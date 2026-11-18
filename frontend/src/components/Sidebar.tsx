@@ -21,7 +21,10 @@ import {
   CheckSquare, 
   Cpu, 
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  HeartPulse,
+  Route,
+  Radio
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -50,20 +53,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'AMBULANCE':
         return [
           { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
-          { id: 'new-request', label: 'New Emergency Request', icon: PlusCircle, badge: 'Active' },
-          { id: 'live-tracking', label: 'Live Tracking', icon: Navigation },
-          { id: 'history', label: 'Journey History', icon: History },
+          { id: 'patient', label: 'Patient', icon: HeartPulse, badge: 'Triage' },
+          { id: 'route', label: 'Route', icon: Route, badge: 'Multi' },
+          { id: 'nearby-hospitals', label: 'Nearby Hospitals', icon: Building2 },
+          { id: 'communication', label: 'Communication', icon: Radio, badge: 'Radio' },
           { id: 'notifications', label: 'Notifications', icon: Bell },
           { id: 'settings', label: 'Settings', icon: Settings },
         ];
       case 'HOSPITAL':
         return [
           { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
-          { id: 'incoming-requests', label: 'Incoming Requests', icon: Inbox },
-          { id: 'active-ambulances', label: 'Active Ambulances', icon: Ambulance },
-          { id: 'live-location', label: 'Live Location Map', icon: Navigation },
+          { id: 'incoming-ambulance', label: 'Incoming Ambulance', icon: Ambulance, badge: 'Queue' },
+          { id: 'live-location', label: 'Live Location', icon: Navigation },
           { id: 'bed-availability', label: 'Bed Availability', icon: Bed, badge: 'Live' },
-          { id: 'history', label: 'Coordination History', icon: History },
+          { id: 'communication', label: 'Communication', icon: Radio, badge: 'Radio' },
           { id: 'notifications', label: 'Notifications', icon: Bell },
           { id: 'settings', label: 'Settings', icon: Settings },
         ];

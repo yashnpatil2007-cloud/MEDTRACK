@@ -3,12 +3,25 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Navigation, Clock, ShieldAlert, Radio, Play, Pause, RotateCcw } from 'lucide-react';
 
+export interface MapRouteAlternative {
+  route_id: string;
+  name: string;
+  coordinates: [number, number][];
+  distance_km?: number;
+  duration_mins?: number;
+  traffic_condition?: string;
+  traffic_color?: string;
+}
+
 interface LeafletMapProps {
   ambulancePos?: [number, number] | null;
   hospitalPos?: [number, number] | null;
   hospitalName?: string;
   ambulanceId?: string;
   routeCoordinates?: [number, number][];
+  alternativeRoutes?: MapRouteAlternative[];
+  selectedRouteId?: string;
+  onSelectRoute?: (routeId: string) => void;
   accuracy?: number | null;
   lastUpdated?: string | null;
   isLiveTracking?: boolean;
@@ -23,6 +36,9 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   hospitalName = 'Destination Hospital',
   ambulanceId = 'Ambulance Unit',
   routeCoordinates = [],
+  alternativeRoutes = [],
+  selectedRouteId,
+  onSelectRoute,
   accuracy,
   lastUpdated,
   isLiveTracking = false,
@@ -35,6 +51,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   const ambulanceMarkerRef = useRef<L.Marker | null>(null);
   const hospitalMarkerRef = useRef<L.Marker | null>(null);
   const polylineRef = useRef<L.Polyline | null>(null);
+  const altPolylinesRef = useRef<L.Polyline[]>([]);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
 
   // Simulation state for desktop demo verification
@@ -161,8 +178,78 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       }
     }
 
-    // 3. Route Polyline
-    if (routeCoordinates && routeCoordinates.length > 0) {
+    // 3. Alternative Routes & Polyline Rendering
+    // Clear old alternative polylines
+    altPolylinesRef.current.forEach((line) => map.removeLayer(line));
+    altPolylinesRef.current = [];
+
+    if (alternativeRoutes && alternativeRoutes.length > 0) {
+      if (polylineRef.current) {
+        map.removeLayer(polylineRef.current);
+        polylineRef.current = null;
+      }
+
+      let allBounds: L.LatLngBounds | null = null;
+
+      for (let idx = 0; idx < alternativeRoutes.length; idx++) {
+        const route = alternativeRoutes[idx];
+        if (!route.coordinates || route.coordinates.length === 0) continue;
+
+        const isSelected = selectedRouteId ? route.route_id === selectedRouteId : idx === 0;
+        
+        // Distinct route line colours: Teal for selected/fastest, Blue for alt 1, Amber for alt 2
+        let color = '#2563EB'; // Blue
+        if (isSelected) color = '#0D9488'; // Teal
+        else if (idx === 1) color = '#3B82F6'; // Royal Blue
+        else if (idx === 2) color = '#D97706'; // Amber
+
+        const weight = isSelected ? 6 : 4;
+        const opacity = isSelected ? 0.95 : 0.65;
+        const dashArray = isSelected ? undefined : '6, 6';
+
+        const poly = L.polyline(route.coordinates, {
+          color,
+          weight,
+          opacity,
+          dashArray,
+          lineJoin: 'round',
+        }).addTo(map);
+
+        poly.bindPopup(`
+          <div style="font-family: sans-serif; font-size: 12px; line-height: 1.4;">
+            <b style="color: #0f172a;">${route.name}</b><br/>
+            <span>Distance: <b>${route.distance_km || '—'} km</b></span><br/>
+            <span>Est. Duration: <b>${route.duration_mins || '—'} mins</b></span><br/>
+            <span>Traffic Condition: <b style="color:${isSelected ? '#0D9488' : '#3B82F6'};">${route.traffic_condition || 'MODERATE'}</b></span>
+            ${isSelected ? '<br/><span style="color:#0D9488; font-weight:bold;">[Currently Selected Route]</span>' : '<br/><span style="color:#64748b;">(Click route line to select)</span>'}
+          </div>
+        `);
+
+        poly.on('click', () => {
+          if (onSelectRoute) {
+            onSelectRoute(route.route_id);
+          }
+        });
+
+        altPolylinesRef.current.push(poly);
+
+        const routeBounds = L.latLngBounds(route.coordinates);
+        if (!allBounds) {
+          allBounds = routeBounds;
+        } else {
+          allBounds.extend(routeBounds);
+        }
+      }
+
+      if (allBounds) {
+        const bounds: L.LatLngBounds = allBounds;
+        if (ambulancePos) bounds.extend(ambulancePos);
+        if (hospitalPos) bounds.extend(hospitalPos);
+        try {
+          map.fitBounds(bounds, { padding: [40, 40] });
+        } catch {}
+      }
+    } else if (routeCoordinates && routeCoordinates.length > 0) {
       if (!polylineRef.current) {
         polylineRef.current = L.polyline(routeCoordinates, {
           color: '#0D9488',
@@ -187,7 +274,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       map.removeLayer(polylineRef.current);
       polylineRef.current = null;
     }
-  }, [ambulancePos, hospitalPos, routeCoordinates, accuracy, hospitalName, ambulanceId]);
+  }, [ambulancePos, hospitalPos, routeCoordinates, alternativeRoutes, selectedRouteId, accuracy, hospitalName, ambulanceId]);
 
   // Simulation loop for test driving along route
   useEffect(() => {

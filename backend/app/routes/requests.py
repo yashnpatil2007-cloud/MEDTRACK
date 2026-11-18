@@ -5,7 +5,7 @@ from app.extensions import db
 from app.models.user import Role
 from app.models.emergency_request import EmergencyRequest, RequestStatus, EmergencyLevel
 from app.models.hospital import Hospital, HospitalVerificationStatus
-from app.models.ambulance import AmbulanceProfile
+from app.models.ambulance import AmbulanceProfile, AmbulanceStatus
 from app.utils.auth_helpers import jwt_required, roles_required, hospital_approved_required
 from app.utils.validators import validate_coordinates, validate_emergency_level
 from app.services.socket_service import notify_hospital_new_request, notify_ambulance_request_decision
@@ -32,6 +32,13 @@ def create_emergency_request():
     ambulance = user.ambulance_profile
     if not ambulance:
         return jsonify({'success': False, 'message': 'Ambulance profile not found.'}), 404
+
+    # Concurrency and duplicate booking prevention
+    if not ambulance.is_available:
+        return jsonify({
+            'success': False,
+            'message': f"Ambulance {ambulance.ambulance_id} is currently '{ambulance.status}'. An ambulance cannot accept or submit new requests while occupied."
+        }), 400
 
     data = request.get_json() or {}
     patient_name = data.get('patient_name')
@@ -237,6 +244,11 @@ def make_request_decision(request_id):
 
     try:
         req_record.transition_to(decision, reason)
+        amb_profile = AmbulanceProfile.query.filter_by(ambulance_id=req_record.ambulance_id).first()
+        if decision == RequestStatus.ACCEPTED and amb_profile:
+            amb_profile.status = AmbulanceStatus.BOOKED
+        elif decision == RequestStatus.REJECTED and amb_profile and amb_profile.status == AmbulanceStatus.BOOKED:
+            amb_profile.status = AmbulanceStatus.AVAILABLE
         db.session.commit()
     except ValueError as e:
         db.session.rollback()
@@ -270,11 +282,98 @@ def make_request_decision(request_id):
         'request': req_record.to_dict(include_sensitive=True)
     }), 200
 
+@requests_bp.route('/requests/<request_id>/pickup', methods=['POST'])
+@roles_required(Role.AMBULANCE)
+def confirm_patient_pickup(request_id):
+    """
+    Ambulance confirms arrival at pickup location and patient on board.
+    Transitions request and ambulance status to 'PATIENT PICKED UP'.
+    """
+    user = g.current_user
+    ambulance = user.ambulance_profile
+    req_record = EmergencyRequest.query.filter_by(request_id=request_id).first()
+    if not req_record:
+        return jsonify({'success': False, 'message': 'Request not found.'}), 404
+
+    if req_record.ambulance_id != ambulance.ambulance_id:
+        return jsonify({'success': False, 'message': 'Forbidden: You do not own this request.'}), 403
+
+    if req_record.status not in [RequestStatus.ACCEPTED, RequestStatus.BOOKED]:
+        return jsonify({
+            'success': False, 
+            'message': f"Cannot confirm pickup: Request status is '{req_record.status}' (must be BOOKED/ACCEPTED)."
+        }), 400
+
+    try:
+        req_record.transition_to(RequestStatus.PATIENT_PICKED_UP)
+        ambulance.status = AmbulanceStatus.PATIENT_PICKED_UP
+        db.session.commit()
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+    payload = req_record.to_dict(include_sensitive=True)
+    payload['ambulance_details'] = ambulance.to_dict()
+
+    log_audit(
+        ambulance.ambulance_id,
+        Role.AMBULANCE,
+        'PATIENT_PICKED_UP',
+        'REQUEST',
+        req_record.request_id,
+        f"Paramedic confirmed patient {req_record.patient_name} on board. Preparing route selection."
+    )
+
+    notify_hospital_new_request(req_record.hospital_id, payload)
+
+    return jsonify({
+        'success': True,
+        'message': 'Patient pickup confirmed. Please compare routes and select your destination corridor.',
+        'request': payload
+    }), 200
+
+@requests_bp.route('/requests/<request_id>/destination', methods=['PUT'])
+@roles_required(Role.AMBULANCE)
+def update_request_destination(request_id):
+    """
+    Ambulance updates/confirms destination hospital before starting transit.
+    """
+    user = g.current_user
+    ambulance = user.ambulance_profile
+    req_record = EmergencyRequest.query.filter_by(request_id=request_id).first()
+    if not req_record:
+        return jsonify({'success': False, 'message': 'Request not found.'}), 404
+
+    if req_record.ambulance_id != ambulance.ambulance_id:
+        return jsonify({'success': False, 'message': 'Forbidden.'}), 403
+
+    data = request.get_json() or {}
+    hospital_id = data.get('hospital_id')
+    selected_route = data.get('selected_route')
+
+    if hospital_id:
+        hospital = Hospital.query.filter_by(hospital_id=hospital_id).first()
+        if not hospital:
+            return jsonify({'success': False, 'message': 'Hospital not found.'}), 404
+        req_record.hospital_id = hospital.hospital_id
+        req_record.destination_hospital_name = hospital.hospital_name
+
+    if selected_route:
+        req_record.selected_route = selected_route
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Destination and route corridor updated.',
+        'request': req_record.to_dict(include_sensitive=True)
+    }), 200
+
 @requests_bp.route('/requests/<request_id>/cancel', methods=['POST'])
 @jwt_required
 def cancel_request(request_id):
     """
     Allows ambulance or hospital to cancel an active/pending request.
+    Restores ambulance availability to AVAILABLE.
     """
     user = g.current_user
     req_record = EmergencyRequest.query.filter_by(request_id=request_id).first()
@@ -294,8 +393,10 @@ def cancel_request(request_id):
 
     try:
         req_record.transition_to(RequestStatus.CANCELLED, reason)
-        if req_record.journey and req_record.journey.status == 'ACTIVE':
+        if req_record.journey and req_record.journey.status in ['ACTIVE', 'ON JOURNEY']:
             req_record.journey.status = 'ABORTED'
+        if req_record.ambulance:
+            req_record.ambulance.status = AmbulanceStatus.AVAILABLE
         db.session.commit()
     except ValueError as e:
         db.session.rollback()

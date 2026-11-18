@@ -27,6 +27,7 @@ def create_app(config_name=None):
     from app.routes.notifications import notifications_bp
     from app.routes.contact import contact_bp
     from app.routes.routing_proxy import routing_bp
+    from app.routes.communication import communication_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(requests_bp)
@@ -38,6 +39,7 @@ def create_app(config_name=None):
     app.register_blueprint(notifications_bp)
     app.register_blueprint(contact_bp)
     app.register_blueprint(routing_bp)
+    app.register_blueprint(communication_bp)
 
     # Health check route
     @app.route('/api/health', methods=['GET'])

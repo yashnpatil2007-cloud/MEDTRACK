@@ -2,9 +2,19 @@ export type Role = 'AMBULANCE' | 'HOSPITAL' | 'ADMIN' | 'SUPERADMIN';
 
 export type EmergencyLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
+export type AmbulanceAvailabilityStatus = 
+  | 'AVAILABLE' 
+  | 'BOOKED' 
+  | 'PATIENT PICKED UP' 
+  | 'ON JOURNEY' 
+  | 'COMPLETED';
+
 export type RequestStatus = 
   | 'PENDING' 
   | 'ACCEPTED' 
+  | 'BOOKED'
+  | 'PATIENT PICKED UP'
+  | 'ON JOURNEY'
   | 'REJECTED' 
   | 'JOURNEY_ACTIVE' 
   | 'COMPLETED' 
@@ -21,7 +31,9 @@ export interface AmbulanceProfile {
   current_lat?: number | null;
   current_lng?: number | null;
   last_location_update?: string | null;
-  status: 'AVAILABLE' | 'EN_ROUTE' | 'BUSY' | 'DISPATCHED' | 'OFFLINE';
+  status: AmbulanceAvailabilityStatus | string;
+  active_request_id?: string | null;
+  is_available?: boolean;
 }
 
 export interface Hospital {
@@ -71,11 +83,13 @@ export interface EmergencyRequest {
   rejection_reason?: string | null;
   created_at: string;
   accepted_at?: string | null;
+  patient_picked_up_at?: string | null;
   rejected_at?: string | null;
   journey_started_at?: string | null;
   completed_at?: string | null;
   cancelled_at?: string | null;
   has_active_journey?: boolean;
+  journey?: any;
   ambulance_phone?: string;
   ambulance_driver?: string;
   ambulance_details?: AmbulanceProfile;
@@ -139,9 +153,25 @@ export interface RouteOption {
   name: string;
   distance_km: number;
   duration_mins: number;
+  traffic_condition: 'LOW' | 'MODERATE' | 'HIGH' | 'HEAVY';
+  traffic_color: 'green' | 'yellow' | 'orange' | 'red';
+  estimated_arrival_time: string;
+  is_recommended: boolean;
+  recommendation_reason?: string;
   coordinates: [number, number][];
   provider: string;
   traffic_notice: string;
+}
+
+export interface CommunicationMessage {
+  id: string;
+  sender_id: string;
+  sender_role: 'AMBULANCE' | 'HOSPITAL';
+  recipient_id: string;
+  text: string;
+  timestamp: string;
+  emergency_level?: EmergencyLevel;
+  quick_tag?: string;
 }
 
 export interface NotificationItem {

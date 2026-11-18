@@ -9,7 +9,7 @@ from app.models.journey import Journey, JourneyStatus
 from app.models.location_update import LocationUpdate
 from app.models.route_change import RouteChange
 from app.models.hospital import Hospital
-from app.models.ambulance import AmbulanceProfile
+from app.models.ambulance import AmbulanceProfile, AmbulanceStatus
 from app.utils.auth_helpers import jwt_required, roles_required
 from app.utils.validators import validate_coordinates
 from app.services.routing_service import fetch_osrm_routes
@@ -35,11 +35,14 @@ def start_journey(request_id):
     if req_record.ambulance_id != ambulance.ambulance_id:
         return jsonify({'success': False, 'message': 'Forbidden: You did not initiate this request.'}), 403
 
-    if req_record.status != RequestStatus.ACCEPTED:
+    if req_record.status not in [RequestStatus.PATIENT_PICKED_UP, RequestStatus.ACCEPTED, RequestStatus.BOOKED]:
         return jsonify({
             'success': False,
-            'message': f"Cannot start journey: Request is currently in status '{req_record.status}'. It must be ACCEPTED first."
+            'message': f"Cannot start journey: Request is currently in status '{req_record.status}'. Patient pickup must be confirmed first."
         }), 400
+
+    data = request.get_json(silent=True) or {}
+    chosen_route_name = data.get('selected_route') or req_record.selected_route
 
     hospital = Hospital.query.filter_by(hospital_id=req_record.hospital_id).first()
     if not hospital:
@@ -47,17 +50,30 @@ def start_journey(request_id):
 
     # Fetch real route coordinates from routing engine
     routes = fetch_osrm_routes(req_record.current_lat, req_record.current_lng, hospital.latitude, hospital.longitude)
-    selected_route_obj = routes[0] if routes else None
+    
+    # Match route or take primary
+    selected_route_obj = None
+    for r in routes:
+        if r['name'] == chosen_route_name or r['route_id'] == chosen_route_name:
+            selected_route_obj = r
+            break
+    if not selected_route_obj and routes:
+        selected_route_obj = routes[0]
     
     route_geom = json.dumps(selected_route_obj['coordinates']) if selected_route_obj else "[]"
     est_duration = selected_route_obj['duration_mins'] if selected_route_obj else 15.0
     est_distance = selected_route_obj['distance_km'] if selected_route_obj else 8.0
+    actual_route_name = selected_route_obj['name'] if selected_route_obj else chosen_route_name
 
-    # Transition state
+    # Transition state to ON_JOURNEY
+    req_record.selected_route = actual_route_name
     try:
-        req_record.transition_to(RequestStatus.JOURNEY_ACTIVE)
-    except ValueError as e:
-        return jsonify({'success': False, 'message': str(e)}), 400
+        req_record.transition_to(RequestStatus.ON_JOURNEY)
+    except ValueError:
+        try:
+            req_record.transition_to(RequestStatus.JOURNEY_ACTIVE)
+        except ValueError as e:
+            return jsonify({'success': False, 'message': str(e)}), 400
 
     journey_id = f"JRN-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
@@ -72,7 +88,7 @@ def start_journey(request_id):
         start_lng=req_record.current_lng,
         dest_lat=hospital.latitude,
         dest_lng=hospital.longitude,
-        route_name=req_record.selected_route,
+        route_name=actual_route_name,
         route_geometry=route_geom,
         estimated_duration_mins=est_duration,
         estimated_distance_km=est_distance,
@@ -81,7 +97,7 @@ def start_journey(request_id):
         latest_telemetry_time=datetime.utcnow()
     )
 
-    ambulance.status = 'EN_ROUTE'
+    ambulance.status = AmbulanceStatus.ON_JOURNEY
     ambulance.current_lat = req_record.current_lat
     ambulance.current_lng = req_record.current_lng
     ambulance.last_location_update = datetime.utcnow()
@@ -142,7 +158,7 @@ def post_location_update(journey_id):
     if journey.status != JourneyStatus.ACTIVE:
         return jsonify({'success': False, 'message': f"Cannot update location: Journey is '{journey.status}'."}), 400
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     lat = data.get('latitude')
     lng = data.get('longitude')
     accuracy = data.get('accuracy', 12.0)
@@ -215,7 +231,7 @@ def update_journey_route(journey_id):
     if not journey or journey.ambulance_id != ambulance.ambulance_id:
         return jsonify({'success': False, 'message': 'Journey not found or unauthorized.'}), 404
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     new_route_name = data.get('new_route')
     reason = data.get('reason', 'Driver detour for traffic clearance')
     new_geometry = data.get('geometry') # Optional updated polyline
@@ -281,7 +297,7 @@ def end_journey(journey_id):
         req_record.status = RequestStatus.COMPLETED
         req_record.completed_at = now
 
-    ambulance.status = 'AVAILABLE'
+    ambulance.status = AmbulanceStatus.AVAILABLE
     db.session.commit()
 
     j_dict = journey.to_dict()
@@ -291,14 +307,14 @@ def end_journey(journey_id):
         'JOURNEY_COMPLETED',
         'JOURNEY',
         journey.journey_id,
-        f"Patient transfer completed at hospital {journey.hospital_id}."
+        f"Patient transfer completed at hospital {journey.hospital_id}. Actual duration: {journey.actual_duration_mins} mins."
     )
 
     notify_journey_status(j_dict)
 
     return jsonify({
         'success': True,
-        'message': 'Journey completed successfully. Patient handed over to trauma center.',
+        'message': f"Journey completed successfully. Actual duration: {journey.actual_duration_mins or 'N/A'} mins. Ambulance is now AVAILABLE.",
         'journey': j_dict
     }), 200
 

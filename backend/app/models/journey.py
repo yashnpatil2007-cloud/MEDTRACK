@@ -29,6 +29,7 @@ class Journey(db.Model):
     route_name = db.Column(db.String(100), default='Primary Route')
     route_geometry = db.Column(db.Text, nullable=True) # GeoJSON or polyline coordinate list
     estimated_duration_mins = db.Column(db.Float, default=15.0)
+    actual_duration_mins = db.Column(db.Float, nullable=True)
     estimated_distance_km = db.Column(db.Float, default=8.5)
     
     # Latest telemetry
@@ -47,6 +48,9 @@ class Journey(db.Model):
     def complete(self):
         self.status = JourneyStatus.COMPLETED
         self.completed_at = datetime.utcnow()
+        if self.started_at:
+            duration = (self.completed_at - self.started_at).total_seconds() / 60.0
+            self.actual_duration_mins = round(max(duration, 0.5), 1)
 
     def to_dict(self):
         return {
@@ -65,6 +69,7 @@ class Journey(db.Model):
             'route_name': self.route_name,
             'route_geometry': self.route_geometry,
             'estimated_duration_mins': self.estimated_duration_mins,
+            'actual_duration_mins': self.actual_duration_mins,
             'estimated_distance_km': self.estimated_distance_km,
             'latest_lat': self.latest_lat,
             'latest_lng': self.latest_lng,

@@ -1,6 +1,14 @@
 from datetime import datetime
 from app.extensions import db
 
+class AmbulanceStatus:
+    AVAILABLE = 'AVAILABLE'
+    BOOKED = 'BOOKED'
+    PATIENT_PICKED_UP = 'PATIENT PICKED UP'
+    ON_JOURNEY = 'ON JOURNEY'
+    COMPLETED = 'COMPLETED'
+    ALL = [AVAILABLE, BOOKED, PATIENT_PICKED_UP, ON_JOURNEY, COMPLETED]
+
 class AmbulanceProfile(db.Model):
     __tablename__ = 'ambulance_profiles'
 
@@ -14,12 +22,16 @@ class AmbulanceProfile(db.Model):
     current_lat = db.Column(db.Float, nullable=True)
     current_lng = db.Column(db.Float, nullable=True)
     last_location_update = db.Column(db.DateTime, nullable=True)
-    status = db.Column(db.String(30), default='AVAILABLE', nullable=False) # AVAILABLE, EN_ROUTE, BUSY, OFFLINE
+    status = db.Column(db.String(30), default=AmbulanceStatus.AVAILABLE, nullable=False) # AVAILABLE, BOOKED, PATIENT PICKED UP, ON JOURNEY, COMPLETED
 
     # Back ref
     user = db.relationship('User', back_populates='ambulance_profile')
     requests = db.relationship('EmergencyRequest', back_populates='ambulance', lazy='dynamic')
     journeys = db.relationship('Journey', back_populates='ambulance', lazy='dynamic')
+
+    @property
+    def is_available(self) -> bool:
+        return self.status in [AmbulanceStatus.AVAILABLE, AmbulanceStatus.COMPLETED]
 
     def to_dict(self):
         return {
@@ -31,5 +43,6 @@ class AmbulanceProfile(db.Model):
             'current_lat': self.current_lat,
             'current_lng': self.current_lng,
             'last_location_update': self.last_location_update.isoformat() if self.last_location_update else None,
-            'status': self.status
+            'status': self.status,
+            'is_available': self.is_available
         }

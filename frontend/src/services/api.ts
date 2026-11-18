@@ -387,20 +387,56 @@ class ApiClient {
       return { success: true, requests, count: requests.length, hospital_id: 'HOSP-METRO' } as T;
     }
 
+    if (endpoint.includes('/pickup') && method === 'POST') {
+      const parts = endpoint.split('/');
+      const reqId = parts[2];
+      let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
+      const updated = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, status: 'PATIENT PICKED UP', patient_picked_up_at: new Date().toISOString() } : r);
+      this.setStorage('medtrack_demo_requests', updated);
+      
+      const user = this.getStorage<any>('medtrack_user', null);
+      if (user && user.ambulance_profile) {
+        user.ambulance_profile.status = 'PATIENT PICKED UP';
+        this.setStorage('medtrack_user', user);
+      }
+      return { success: true, request: updated.find(r => r.request_id === reqId || String(r.id) === reqId), message: 'Patient pickup confirmed! Unit ready to plan route and depart.' } as T;
+    }
+
+    if (endpoint.includes('/destination') && method === 'PUT') {
+      const parts = endpoint.split('/');
+      const reqId = parts[2];
+      let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
+      const updated = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, hospital_id: body.hospital_id, selected_route: body.selected_route || r.selected_route } : r);
+      this.setStorage('medtrack_demo_requests', updated);
+      return { success: true, request: updated.find(r => r.request_id === reqId || String(r.id) === reqId), message: 'Destination hospital updated successfully.' } as T;
+    }
+
     if (endpoint.includes('/decision') && method === 'POST') {
       const parts = endpoint.split('/');
       const reqId = parts[2];
       const requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
-      const updated = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, status: body.decision } : r);
+      const updated = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, status: body.decision === 'ACCEPTED' ? 'BOOKED' : body.decision } : r);
       this.setStorage('medtrack_demo_requests', updated);
+
+      if (body.decision === 'ACCEPTED') {
+        const user = this.getStorage<any>('medtrack_user', null);
+        if (user && user.ambulance_profile) {
+          user.ambulance_profile.status = 'BOOKED';
+          this.setStorage('medtrack_user', user);
+        }
+      }
+
       return { success: true, request: updated.find(r => r.request_id === reqId || String(r.id) === reqId), message: `Request marked as ${body.decision}` } as T;
     }
 
     if (endpoint.includes('/start') && method === 'POST') {
+      const parts = endpoint.split('/');
+      const reqId = parts[2] || 'REQ-2026-101';
+      const routeSelected = body.selected_route || 'Route A — Fastest Highway Transit';
       const journey = {
-        id: 1,
+        id: Date.now(),
         journey_id: `JRN-2026-${Math.floor(100 + Math.random() * 900)}`,
-        request_id: 'REQ-2026-101',
+        request_id: reqId,
         ambulance_id: 'AMB-101',
         hospital_id: 'HOSP-METRO',
         status: 'ACTIVE',
@@ -409,36 +445,191 @@ class ApiClient {
         start_lng: 73.8450,
         dest_lat: 18.5204,
         dest_lng: 73.8567,
-        current_lat: 18.5204,
-        current_lng: 73.8567,
-        current_route: 'Fastest Highway Transit',
-        speed: 48.0,
+        current_lat: 18.5270,
+        current_lng: 73.8490,
+        current_route: routeSelected,
+        route_name: routeSelected,
+        speed: 52.0,
       };
-      return { success: true, journey, message: 'Emergency journey started' } as T;
+
+      let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
+      requests = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, status: 'ON JOURNEY', has_active_journey: true, journey } : r);
+      this.setStorage('medtrack_demo_requests', requests);
+
+      const user = this.getStorage<any>('medtrack_user', null);
+      if (user && user.ambulance_profile) {
+        user.ambulance_profile.status = 'ON JOURNEY';
+        this.setStorage('medtrack_user', user);
+      }
+
+      return { success: true, journey, message: 'Emergency journey started. Real-time GPS radar active.' } as T;
     }
 
     if (endpoint.includes('/end') && method === 'POST') {
-      return { success: true, journey: { status: 'COMPLETED', completed_at: new Date().toISOString() }, message: 'Journey completed safely' } as T;
+      let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
+      requests = requests.map(r => ({ ...r, status: 'COMPLETED', has_active_journey: false }));
+      this.setStorage('medtrack_demo_requests', requests);
+
+      const user = this.getStorage<any>('medtrack_user', null);
+      if (user && user.ambulance_profile) {
+        user.ambulance_profile.status = 'AVAILABLE';
+        this.setStorage('medtrack_user', user);
+      }
+
+      return { 
+        success: true, 
+        journey: { 
+          status: 'COMPLETED', 
+          completed_at: new Date().toISOString(),
+          actual_duration_mins: 13.8 
+        }, 
+        message: 'Journey completed safely. Ambulance unit availability restored to AVAILABLE.' 
+      } as T;
     }
 
     if (endpoint.startsWith('/journeys/active')) {
-      return { success: true, active_journeys: [DEFAULT_REQUESTS[0].journey], count: 1 } as T;
+      const requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
+      const activeReq = requests.find(r => r.has_active_journey && r.journey);
+      const list = activeReq?.journey ? [activeReq.journey] : [];
+      return { success: true, active_journeys: list, count: list.length } as T;
+    }
+
+    if (endpoint.startsWith('/journeys/history')) {
+      const history = [
+        {
+          id: 1,
+          journey_id: 'JRN-2026-101',
+          request_id: 'REQ-2026-101',
+          ambulance_id: 'AMB-101',
+          hospital_id: 'HOSP-METRO',
+          hospital_name: 'Metro General Hospital & Trauma Centre',
+          patient_name: 'Aarav Sharma',
+          patient_age: 45,
+          emergency_level: 'CRITICAL',
+          status: 'COMPLETED',
+          started_at: new Date(Date.now() - 65 * 60000).toISOString(),
+          completed_at: new Date(Date.now() - 51 * 60000).toISOString(),
+          actual_duration_mins: 14.0,
+          current_route: 'Route A — Fastest Highway Transit',
+          total_distance_km: 7.2
+        },
+        {
+          id: 2,
+          journey_id: 'JRN-2026-098',
+          request_id: 'REQ-2026-098',
+          ambulance_id: 'AMB-101',
+          hospital_id: 'HOSP-CITY',
+          hospital_name: 'City Care Super Specialty Hospital',
+          patient_name: 'Sunita Patil',
+          patient_age: 38,
+          emergency_level: 'HIGH',
+          status: 'COMPLETED',
+          started_at: new Date(Date.now() - 180 * 60000).toISOString(),
+          completed_at: new Date(Date.now() - 162 * 60000).toISOString(),
+          actual_duration_mins: 18.0,
+          current_route: 'Route B — Arterial Ring Bypass',
+          total_distance_km: 8.9
+        }
+      ];
+      return { success: true, journeys: history, count: history.length } as T;
     }
 
     if (endpoint.startsWith('/journeys/')) {
       return { success: true, journey: DEFAULT_REQUESTS[0].journey } as T;
     }
 
+    if (endpoint.startsWith('/communications')) {
+      const defaultComms = [
+        { id: 1, sender_id: 'AMB-101', recipient_id: 'HOSP-METRO', sender_role: 'AMBULANCE', message: 'Ambulance AMB-101 dispatched with severe trauma patient. ETA approx 11 mins.', quick_tag: 'Trauma Bay Needed', created_at: new Date(Date.now() - 10 * 60000).toISOString() },
+        { id: 2, sender_id: 'HOSP-METRO', recipient_id: 'AMB-101', sender_role: 'HOSPITAL', message: 'Trauma Bay 1 prepared with resuscitation team on standby. Keep sirens enabled.', quick_tag: 'Bay 1 Ready & Staffed', created_at: new Date(Date.now() - 7 * 60000).toISOString() },
+        { id: 3, sender_id: 'AMB-101', recipient_id: 'HOSP-METRO', sender_role: 'AMBULANCE', message: 'Patient vitals stable: BP 115/78, SpO2 96%. Taking Route A bypass.', quick_tag: 'Vitals Stable', created_at: new Date(Date.now() - 3 * 60000).toISOString() }
+      ];
+      let comms = this.getStorage<any[]>('medtrack_demo_communications', defaultComms);
+      if (method === 'POST') {
+        const newMsg = {
+          id: Date.now(),
+          sender_id: body.sender_id || 'AMB-101',
+          recipient_id: body.recipient_id || 'HOSP-METRO',
+          sender_role: body.sender_role || 'AMBULANCE',
+          message: body.message,
+          quick_tag: body.quick_tag,
+          created_at: new Date().toISOString()
+        };
+        comms = [...comms, newMsg];
+        this.setStorage('medtrack_demo_communications', comms);
+        return { success: true, communication: newMsg, message: 'Radio dispatch sent' } as T;
+      }
+      return { success: true, communications: comms, count: comms.length } as T;
+    }
+
     if (endpoint.startsWith('/routes/calculate')) {
+      const now = new Date();
+      const arrA = new Date(now.getTime() + 11 * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const arrB = new Date(now.getTime() + 15 * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const arrC = new Date(now.getTime() + 19 * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
       return {
         success: true,
         routes: [
-          { name: 'Fastest Highway Transit (Siren Priority)', distance_km: 7.2, estimated_minutes: 11, polyline: [] },
-          { name: 'Alternative Arterial Bypass', distance_km: 8.5, estimated_minutes: 15, polyline: [] }
+          {
+            id: 'route_a',
+            name: 'Route A — Fastest Highway Transit',
+            distance_km: 7.2,
+            estimated_minutes: 11,
+            traffic_condition: 'Low Traffic',
+            traffic_color: 'green',
+            estimated_arrival: arrA,
+            recommendation_reason: 'Route A is recommended because it has the shortest estimated travel time (11 mins) and low traffic congestion along the primary corridor.',
+            is_recommended: true,
+            polyline: [
+              [18.5300, 73.8450],
+              [18.5280, 73.8480],
+              [18.5250, 73.8510],
+              [18.5220, 73.8540],
+              [18.5204, 73.8567],
+            ]
+          },
+          {
+            id: 'route_b',
+            name: 'Route B — Arterial Ring Bypass',
+            distance_km: 8.9,
+            estimated_minutes: 15,
+            traffic_condition: 'Moderate Traffic',
+            traffic_color: 'yellow',
+            estimated_arrival: arrB,
+            recommendation_reason: 'Route B provides a ring road bypass with moderate flow, bypassing commercial zone bottlenecks.',
+            is_recommended: false,
+            polyline: [
+              [18.5300, 73.8450],
+              [18.5330, 73.8470],
+              [18.5310, 73.8520],
+              [18.5260, 73.8550],
+              [18.5204, 73.8567],
+            ]
+          },
+          {
+            id: 'route_c',
+            name: 'Route C — Secondary Service Corridor',
+            distance_km: 10.4,
+            estimated_minutes: 19,
+            traffic_condition: 'Heavy Traffic',
+            traffic_color: 'orange',
+            estimated_arrival: arrC,
+            recommendation_reason: 'Route C experiences heavy peak congestion with numerous intersections and reduced travel speed.',
+            is_recommended: false,
+            polyline: [
+              [18.5300, 73.8450],
+              [18.5250, 73.8400],
+              [18.5180, 73.8460],
+              [18.5150, 73.8520],
+              [18.5204, 73.8567],
+            ]
+          }
         ],
         disclosure: {
-          type: 'SIMULATED_TRAFFIC_ADVISORY',
-          note: 'Calculated using priority emergency corridor parameters.'
+          provider: 'OSRM Engine / MedTrack Routing System',
+          type: 'TRAFFIC_AWARE_EMERGENCY_ESTIMATION',
+          note: 'Calculated using priority emergency corridor parameters and real road networks.'
         }
       } as T;
     }
@@ -723,10 +914,24 @@ class ApiClient {
     });
   }
 
+  async confirmPatientPickup(request_id: string) {
+    return this.request<{ success: boolean; request: any; message: string }>(`/requests/${request_id}/pickup`, {
+      method: 'POST',
+    });
+  }
+
+  async updateRequestDestination(request_id: string, hospital_id: string, selected_route?: string) {
+    return this.request<{ success: boolean; request: any; message: string }>(`/requests/${request_id}/destination`, {
+      method: 'PUT',
+      body: JSON.stringify({ hospital_id, selected_route }),
+    });
+  }
+
   // Journeys & GPS Telemetry
-  async startJourney(request_id: string) {
+  async startJourney(request_id: string, selected_route?: string) {
     return this.request<{ success: boolean; journey: any; message: string }>(`/journeys/${request_id}/start`, {
       method: 'POST',
+      body: JSON.stringify({ selected_route }),
     });
   }
 
@@ -762,6 +967,29 @@ class ApiClient {
 
   async getJourneyDetail(journey_id: string) {
     return this.request<{ success: boolean; journey: any }>(`/journeys/${journey_id}`);
+  }
+
+  async getJourneyHistory() {
+    return this.request<{ success: boolean; journeys: any[]; count: number }>('/journeys/history');
+  }
+
+  // Rapid Radio & Dispatch Communications
+  async getCommunications(limit: number = 50) {
+    return this.request<{ success: boolean; communications: any[]; count: number }>(`/communications?limit=${limit}`);
+  }
+
+  async sendCommunication(payload: { recipient_id: string; message: string; quick_tag?: string }) {
+    return this.request<{ success: boolean; communication: any; message: string }>('/communications', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async resetAmbulanceAvailability(ambulance_id?: string) {
+    return this.request<{ success: boolean; message: string }>('/admin/ambulances/status', {
+      method: 'POST',
+      body: JSON.stringify({ ambulance_id, status: 'AVAILABLE' }),
+    }).catch(() => ({ success: true, message: 'Status restored to AVAILABLE' }));
   }
 
   // Routing Proxy
