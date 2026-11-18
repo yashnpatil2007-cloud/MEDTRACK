@@ -2,6 +2,35 @@
 
 > **"Connecting Ambulances. Empowering Hospitals. Saving Time."**
 
+[![Live Demo](https://img.shields.io/badge/Live_Website-Online-0D9488?style=for-the-badge&logo=google-chrome&logoColor=white)](https://yashnpatil2007-cloud.github.io/MEDTRACK/)
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/yashnpatil2007-cloud/MEDTRACK)
+[![Deploy on Render](https://img.shields.io/badge/Deploy_to-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://render.com/deploy?repo=https://github.com/yashnpatil2007-cloud/MEDTRACK)
+[![Deploy on Netlify](https://img.shields.io/badge/Deploy_to-Netlify-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://app.netlify.com/start)
+
+---
+
+## 🌐 Live Website Links (Share With Friends & Evaluators)
+
+| Platform | Link | Description |
+| :--- | :--- | :--- |
+| 🚀 **Live Production Website** | **[https://yashnpatil2007-cloud.github.io/MEDTRACK/](https://yashnpatil2007-cloud.github.io/MEDTRACK/)** | **Immediate full-featured access.** Works on mobile, tablet & desktop. Includes interactive cloud simulation fallback for all 4 roles! |
+| 💻 **GitHub Repository** | **[https://github.com/yashnpatil2007-cloud/MEDTRACK](https://github.com/yashnpatil2007-cloud/MEDTRACK)** | Full source code with automated test suite, Docker Compose, and OpenAPI specification. |
+| ⚡ **Netlify Project** | **[https://medtrack-emergency.netlify.app](https://medtrack-emergency.netlify.app)** | Configured with `netlify.toml` and SPA `/* /index.html 200` rules. |
+| 🛡️ **Render Cloud Service** | **[Deploy with Render Blueprint](https://render.com/deploy?repo=https://github.com/yashnpatil2007-cloud/MEDTRACK)** | Automatically provisions the Python Flask backend with PostgreSQL/SQLite via `render.yaml`. |
+
+---
+
+### 🔑 Instant Demonstration Credentials (1-Click on Login Screen)
+
+| Role | User ID | Password | Capabilities |
+| :--- | :--- | :--- | :--- |
+| 🚑 **Ambulance Driver** | `AMB-101` | `Ambulance@123` | Real GPS coordinates, request creation, Leaflet radar tracking |
+| 🏥 **Hospital Coordinator** | `HOSP-METRO` | `Hospital@123` | Incoming request queue, bed counter, accept/reject triage |
+| 🛡️ **Platform Administrator**| `admin1` | `Admin@MedTrack2026` | Hospital approvals, ambulance fleet, user management, audit logs |
+| 👑 **Super Administrator** | `superadmin` | `SuperAdmin@MedTrack2026` | System telemetry, database health, admin provisioning |
+
+---
+
 MEDTRACK is a mission-critical, enterprise healthcare coordination SaaS application designed to connect mobile ambulance paramedic crews, hospital emergency triage departments, and municipal emergency management organizations in real-time.
 
 ---
