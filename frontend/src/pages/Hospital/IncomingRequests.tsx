@@ -103,21 +103,22 @@ export const IncomingRequests: React.FC = () => {
                 <th className="px-5 py-3">Patient Info</th>
                 <th className="px-5 py-3">Emergency Level</th>
                 <th className="px-5 py-3">Ambulance Unit</th>
-                <th className="px-5 py-3">Transmitted</th>
-                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Pickup Location</th>
+                <th className="px-5 py-3">Expected Arrival / ETA</th>
+                <th className="px-5 py-3">Booking Status</th>
                 <th className="px-5 py-3 text-right">Triage Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-8 text-center text-slate-400">
+                  <td colSpan={8} className="px-5 py-8 text-center text-slate-400">
                     Loading incoming queue...
                   </td>
                 </tr>
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
+                  <td colSpan={8} className="px-5 py-12 text-center text-slate-400">
                     <Inbox className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     No incoming emergency requests for this hospital at this moment.
                   </td>
@@ -125,6 +126,7 @@ export const IncomingRequests: React.FC = () => {
               ) : (
                 requests.map((req) => {
                   const isPending = req.status === 'PENDING';
+                  const isOnJourney = req.status === 'ON JOURNEY' || req.status === 'JOURNEY_ACTIVE' || req.has_active_journey;
                   return (
                     <tr key={req.id} className={`transition-colors ${isPending ? 'bg-amber-50/30 hover:bg-amber-50/60' : 'hover:bg-slate-50'}`}>
                       <td className="px-5 py-3.5 font-mono font-bold text-navy-950">
@@ -152,13 +154,32 @@ export const IncomingRequests: React.FC = () => {
                           </div>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-slate-500">
-                        {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      <td className="px-5 py-3.5 max-w-xs">
+                        <div className="flex items-center space-x-1 text-slate-700 font-medium truncate">
+                          <MapPin className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                          <span className="truncate">{req.location_address || `${req.current_lat.toFixed(4)}, ${req.current_lng.toFixed(4)}`}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {isOnJourney ? (
+                          <span className="text-cyan-700 font-bold flex items-center space-x-1">
+                            <Navigation className="w-3 h-3 text-cyan-600 animate-pulse" />
+                            <span>En Route (~11 mins)</span>
+                          </span>
+                        ) : req.status === 'PATIENT PICKED UP' ? (
+                          <span className="text-amber-700 font-medium text-[11px]">Picked Up (Ready)</span>
+                        ) : req.status === 'ACCEPTED' || req.status === 'BOOKED' ? (
+                          <span className="text-teal-700 font-medium text-[11px]">Dispatched to Pickup</span>
+                        ) : req.status === 'COMPLETED' ? (
+                          <span className="text-emerald-700 font-medium text-[11px]">Arrived & Handed Over</span>
+                        ) : (
+                          <span className="text-slate-400 font-medium text-[11px]">Triage Pending</span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         <StatusBadge status={req.status} />
                       </td>
-                      <td className="px-5 py-3.5 text-right space-x-1.5">
+                      <td className="px-5 py-3.5 text-right space-x-1.5 whitespace-nowrap">
                         <button
                           onClick={() => setSelectedReq(req)}
                           className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 font-semibold text-xs"

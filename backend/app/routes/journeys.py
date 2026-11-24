@@ -346,6 +346,35 @@ def get_active_journeys():
 
     return jsonify({'success': True, 'count': len(res), 'active_journeys': res}), 200
 
+@journeys_bp.route('/journeys/history', methods=['GET'])
+@jwt_required
+def get_journey_history():
+    """
+    Returns completed and historical journeys for the caller.
+    """
+    user = g.current_user
+    if user.role == Role.AMBULANCE:
+        journeys = Journey.query.filter_by(ambulance_id=user.user_id).order_by(Journey.started_at.desc()).all()
+    elif user.role == Role.HOSPITAL:
+        journeys = Journey.query.filter_by(hospital_id=user.user_id).order_by(Journey.started_at.desc()).all()
+    else:
+        journeys = Journey.query.order_by(Journey.started_at.desc()).all()
+
+    res = []
+    for j in journeys:
+        jd = j.to_dict()
+        if j.request:
+            jd['emergency_level'] = j.request.emergency_level
+            jd['patient_name'] = j.request.patient_name if user.role != Role.ADMIN else f"PAT-{j.request.id}"
+            jd['patient_age'] = j.request.patient_age
+            jd['destination_hospital_name'] = j.request.destination_hospital_name
+        if j.ambulance:
+            jd['ambulance_phone'] = j.ambulance.phone_number
+            jd['ambulance_driver'] = j.ambulance.full_name
+        res.append(jd)
+
+    return jsonify({'success': True, 'count': len(res), 'journeys': res}), 200
+
 @journeys_bp.route('/journeys/<journey_id>', methods=['GET'])
 @jwt_required
 def get_journey_detail(journey_id):

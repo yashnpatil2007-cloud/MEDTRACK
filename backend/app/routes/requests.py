@@ -347,7 +347,7 @@ def update_request_destination(request_id):
     if req_record.ambulance_id != ambulance.ambulance_id:
         return jsonify({'success': False, 'message': 'Forbidden.'}), 403
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     hospital_id = data.get('hospital_id')
     selected_route = data.get('selected_route')
 
@@ -388,7 +388,7 @@ def cancel_request(request_id):
     if not (is_owner_ambulance or is_owner_hospital or is_admin):
         return jsonify({'success': False, 'message': 'Forbidden.'}), 403
 
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     reason = data.get('reason', 'Cancelled by coordinator/user')
 
     try:

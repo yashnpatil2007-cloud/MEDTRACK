@@ -57,6 +57,34 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, level, classNa
             Accepted
           </span>
         );
+      case 'BOOKED':
+        return (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 ${className}`}>
+            <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-amber-500" />
+            Booked
+          </span>
+        );
+      case 'PATIENT PICKED UP':
+        return (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-300 ${className}`}>
+            <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-cyan-600" />
+            Patient Picked Up
+          </span>
+        );
+      case 'ON JOURNEY':
+        return (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-300 ${className}`}>
+            <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-blue-600 animate-ping" />
+            On Journey
+          </span>
+        );
+      case 'AVAILABLE':
+        return (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 ${className}`}>
+            <span className="w-1.5 h-1.5 mr-1.5 rounded-full bg-emerald-500" />
+            Available
+          </span>
+        );
       case 'REJECTED':
         return (
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 ${className}`}>

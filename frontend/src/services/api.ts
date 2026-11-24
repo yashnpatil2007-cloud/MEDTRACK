@@ -975,7 +975,7 @@ class ApiClient {
 
   // Rapid Radio & Dispatch Communications
   async getCommunications(limit: number = 50) {
-    return this.request<{ success: boolean; communications: any[]; count: number }>(`/communications?limit=${limit}`);
+    return this.request<{ success: boolean; communications?: any[]; messages?: any[]; count: number }>(`/communications?limit=${limit}`);
   }
 
   async sendCommunication(payload: { recipient_id: string; message: string; quick_tag?: string }) {
@@ -986,7 +986,7 @@ class ApiClient {
   }
 
   async resetAmbulanceAvailability(ambulance_id?: string) {
-    return this.request<{ success: boolean; message: string }>('/admin/ambulances/status', {
+    return this.request<{ success: boolean; message: string }>('/ambulances/status', {
       method: 'POST',
       body: JSON.stringify({ ambulance_id, status: 'AVAILABLE' }),
     }).catch(() => ({ success: true, message: 'Status restored to AVAILABLE' }));

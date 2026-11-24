@@ -50,9 +50,8 @@ export const CommunicationCenter: React.FC<CommunicationCenterProps> = ({ onNavi
   const fetchCommunications = async () => {
     try {
       const res = await api.getCommunications(50);
-      if (res.communications) {
-        setMessages(res.communications);
-      }
+      const msgs = res.communications || res.messages || [];
+      setMessages(msgs);
     } catch (err: any) {
       console.error('Failed to load communication messages:', err);
     } finally {

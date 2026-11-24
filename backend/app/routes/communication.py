@@ -52,7 +52,8 @@ def get_communications():
     return jsonify({
         'success': True,
         'count': len(filtered),
-        'messages': filtered
+        'messages': filtered,
+        'communications': filtered
     }), 200
 
 @communication_bp.route('/communications', methods=['POST'])
@@ -62,20 +63,23 @@ def send_communication():
     Transmits an emergency radio communication message.
     """
     user = g.current_user
-    data = request.get_json() or {}
-    text = data.get('text', '').strip()
+    data = request.get_json(silent=True) or {}
+    text = (data.get('text') or data.get('message') or '').strip()
     recipient_id = data.get('recipient_id', 'HOSP-METRO' if user.role == Role.AMBULANCE else 'AMB-101')
     quick_tag = data.get('quick_tag')
 
     if not text and not quick_tag:
         return jsonify({'success': False, 'message': 'Message text or quick tag is required.'}), 400
 
+    msg_body = text or f"Emergency Dispatch: {quick_tag.replace('_', ' ').title()}"
+
     new_msg = {
         'id': f"MSG-{uuid.uuid4().hex[:6].upper()}",
         'sender_id': user.user_id,
         'sender_role': user.role,
         'recipient_id': recipient_id,
-        'text': text or f"Emergency Dispatch: {quick_tag.replace('_', ' ').title()}",
+        'text': msg_body,
+        'message': msg_body,
         'quick_tag': quick_tag,
         'timestamp': datetime.utcnow().strftime('%I:%M %p')
     }
@@ -88,7 +92,7 @@ def send_communication():
         'COMMUNICATION_DISPATCH',
         'MESSAGE',
         new_msg['id'],
-        f"Radio transmission to {recipient_id}: {new_msg['text'][:50]}"
+        f"Radio transmission to {recipient_id}: {msg_body[:50]}"
     )
 
     return jsonify({

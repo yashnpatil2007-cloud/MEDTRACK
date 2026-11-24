@@ -44,10 +44,13 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ onJourneyCompleted }
     try {
       const [jrnRes, reqRes] = await Promise.all([
         api.getActiveJourneys(),
-        api.getRequests('ACCEPTED'),
+        api.getRequests(),
       ]);
-      setActiveJourneys(jrnRes.active_journeys);
-      setAcceptedRequests(reqRes.requests);
+      setActiveJourneys(jrnRes.active_journeys || []);
+      const ready = (reqRes.requests || []).filter(
+        (r) => r.status === 'ACCEPTED' || r.status === 'BOOKED' || r.status === 'PATIENT PICKED UP'
+      );
+      setAcceptedRequests(ready);
 
       if (jrnRes.active_journeys.length > 0) {
         const jrn = jrnRes.active_journeys[0];
