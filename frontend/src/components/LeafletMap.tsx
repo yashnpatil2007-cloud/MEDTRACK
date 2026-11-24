@@ -5,12 +5,17 @@ import { Navigation, Clock, ShieldAlert, Radio, Play, Pause, RotateCcw } from 'l
 
 export interface MapRouteAlternative {
   route_id: string;
+  id?: string;
   name: string;
   coordinates: [number, number][];
+  polyline?: [number, number][];
   distance_km?: number;
   duration_mins?: number;
+  estimated_minutes?: number;
   traffic_condition?: string;
   traffic_color?: string;
+  traffic_signals_count?: number;
+  signals_avoidance_benefit?: string;
 }
 
 interface LeafletMapProps {
@@ -193,21 +198,26 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
       for (let idx = 0; idx < alternativeRoutes.length; idx++) {
         const route = alternativeRoutes[idx];
-        if (!route.coordinates || route.coordinates.length === 0) continue;
+        const routeId = route.route_id || (route as any).id || `route_${idx}`;
+        const coords = route.coordinates || (route as any).polyline;
+        if (!coords || coords.length === 0) continue;
 
-        const isSelected = selectedRouteId ? route.route_id === selectedRouteId : idx === 0;
+        const isSelected = selectedRouteId ? (routeId === selectedRouteId || route.name === selectedRouteId) : idx === 0;
         
-        // Distinct route line colours: Teal for selected/fastest, Blue for alt 1, Amber for alt 2
+        // Distinct route line colours: Teal for selected, Green for A, Royal Blue for B, Amber for C, Violet for D
         let color = '#2563EB'; // Blue
-        if (isSelected) color = '#0D9488'; // Teal
-        else if (idx === 1) color = '#3B82F6'; // Royal Blue
-        else if (idx === 2) color = '#D97706'; // Amber
+        if (isSelected) color = '#0D9488'; // Active Selected (Teal)
+        else if (idx === 0) color = '#10B981'; // Route A (Emerald Green)
+        else if (idx === 1) color = '#3B82F6'; // Route B (Royal Blue)
+        else if (idx === 2) color = '#F59E0B'; // Route C (Amber)
+        else if (idx === 3) color = '#8B5CF6'; // Route D (Violet)
+        else color = '#EC4899';
 
-        const weight = isSelected ? 6 : 4;
-        const opacity = isSelected ? 0.95 : 0.65;
+        const weight = isSelected ? 7 : 4;
+        const opacity = isSelected ? 0.95 : 0.70;
         const dashArray = isSelected ? undefined : '6, 6';
 
-        const poly = L.polyline(route.coordinates, {
+        const poly = L.polyline(coords, {
           color,
           weight,
           opacity,
@@ -216,24 +226,28 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         }).addTo(map);
 
         poly.bindPopup(`
-          <div style="font-family: sans-serif; font-size: 12px; line-height: 1.4;">
-            <b style="color: #0f172a;">${route.name}</b><br/>
-            <span>Distance: <b>${route.distance_km || '—'} km</b></span><br/>
-            <span>Est. Duration: <b>${route.duration_mins || '—'} mins</b></span><br/>
-            <span>Traffic Condition: <b style="color:${isSelected ? '#0D9488' : '#3B82F6'};">${route.traffic_condition || 'MODERATE'}</b></span>
-            ${isSelected ? '<br/><span style="color:#0D9488; font-weight:bold;">[Currently Selected Route]</span>' : '<br/><span style="color:#64748b;">(Click route line to select)</span>'}
+          <div style="font-family: sans-serif; font-size: 12px; line-height: 1.45; min-width: 220px;">
+            <b style="color: #0f172a; font-size: 13px;">${route.name}</b><br/>
+            <div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid #e2e8f0;">
+              <span>Distance: <b>${route.distance_km || '—'} km</b></span><br/>
+              <span>Est. Transit: <b>${route.duration_mins || route.estimated_minutes || '—'} mins</b></span><br/>
+              <span>Traffic: <b style="color:${isSelected ? '#0D9488' : '#2563EB'};">${route.traffic_condition || 'MODERATE'}</b></span><br/>
+              <span>Traffic Signals: <b>🚦 ${route.traffic_signals_count ? route.traffic_signals_count + ' Signals' : 'Smart Wave'}</b></span>
+              ${route.signals_avoidance_benefit ? `<br/><span style="color:#047857; font-size:11px; font-weight:600;">✓ ${route.signals_avoidance_benefit}</span>` : ''}
+              ${isSelected ? '<br/><span style="color:#0D9488; font-weight:bold; display:inline-block; margin-top:4px;">[Active Selected Route]</span>' : '<br/><span style="color:#2563EB; font-size:11px; font-weight:bold; cursor:pointer;">(Click route line to select)</span>'}
+            </div>
           </div>
         `);
 
         poly.on('click', () => {
           if (onSelectRoute) {
-            onSelectRoute(route.route_id);
+            onSelectRoute(routeId);
           }
         });
 
         altPolylinesRef.current.push(poly);
 
-        const routeBounds = L.latLngBounds(route.coordinates);
+        const routeBounds = L.latLngBounds(coords);
         if (!allBounds) {
           allBounds = routeBounds;
         } else {

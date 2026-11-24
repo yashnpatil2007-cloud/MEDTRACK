@@ -151,15 +151,23 @@ export interface Journey {
 
 export interface RouteOption {
   route_id: string;
+  id?: string;
   name: string;
   distance_km: number;
   duration_mins: number;
+  estimated_minutes?: number;
   traffic_condition: 'LOW' | 'MODERATE' | 'HIGH' | 'HEAVY';
   traffic_color: 'green' | 'yellow' | 'orange' | 'red';
+  traffic_delay_mins?: number;
+  traffic_signals_count?: number;
+  signals_avoidance_benefit?: string;
+  flyover_bypass_enabled?: boolean;
   estimated_arrival_time: string;
+  estimated_arrival?: string;
   is_recommended: boolean;
   recommendation_reason?: string;
   coordinates: [number, number][];
+  polyline?: [number, number][];
   provider: string;
   traffic_notice: string;
 }

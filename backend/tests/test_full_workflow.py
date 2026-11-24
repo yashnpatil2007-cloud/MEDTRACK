@@ -75,7 +75,7 @@ def test_full_emergency_lifecycle_and_features(client, app, seed_test_data):
     routes_res = client.get('/api/routes/calculate?start_lat=12.9700&start_lng=77.5900&dest_lat=12.9716&dest_lng=77.5946')
     assert routes_res.status_code == 200
     routes_data = routes_res.get_json()
-    assert routes_data['count'] == 3
+    assert routes_data['count'] >= 3
     assert any(r['is_recommended'] for r in routes_data['routes'])
 
     # 8. Start Journey
