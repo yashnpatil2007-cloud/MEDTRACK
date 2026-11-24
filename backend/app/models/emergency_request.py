@@ -13,9 +13,9 @@ class RequestStatus:
     REJECTED = 'REJECTED'
 
     VALID_TRANSITIONS = {
-        PENDING: [ACCEPTED, BOOKED, REJECTED, CANCELLED],
+        PENDING: [ACCEPTED, BOOKED, PATIENT_PICKED_UP, ON_JOURNEY, JOURNEY_ACTIVE, REJECTED, CANCELLED],
         ACCEPTED: [BOOKED, PATIENT_PICKED_UP, JOURNEY_ACTIVE, ON_JOURNEY, CANCELLED],
-        BOOKED: [PATIENT_PICKED_UP, CANCELLED],
+        BOOKED: [PATIENT_PICKED_UP, ON_JOURNEY, JOURNEY_ACTIVE, CANCELLED],
         PATIENT_PICKED_UP: [ON_JOURNEY, JOURNEY_ACTIVE, CANCELLED],
         JOURNEY_ACTIVE: [COMPLETED, CANCELLED],
         ON_JOURNEY: [COMPLETED, CANCELLED],
@@ -92,6 +92,8 @@ class EmergencyRequest(db.Model):
             self.rejected_at = now
             self.rejection_reason = reason
         elif new_status in [RequestStatus.JOURNEY_ACTIVE, RequestStatus.ON_JOURNEY]:
+            if not self.patient_picked_up_at:
+                self.patient_picked_up_at = now
             self.journey_started_at = now
         elif new_status == RequestStatus.COMPLETED:
             self.completed_at = now

@@ -47,6 +47,7 @@ export const NearbyHospitalsView: React.FC<NearbyHospitalsViewProps> = ({ onNavi
         (r) => r.status === 'ACCEPTED' || 
                r.status === 'BOOKED' || 
                r.status === 'PATIENT PICKED UP' || 
+               r.status === 'PENDING' ||
                r.status === 'ON JOURNEY' || 
                r.status === 'JOURNEY_ACTIVE'
       );

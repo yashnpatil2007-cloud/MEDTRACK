@@ -455,6 +455,7 @@ class ApiClient {
       let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
       requests = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, status: 'ON JOURNEY', has_active_journey: true, journey } : r);
       this.setStorage('medtrack_demo_requests', requests);
+      this.setStorage('medtrack_active_journey', journey);
 
       const user = this.getStorage<any>('medtrack_user', null);
       if (user && user.ambulance_profile) {
@@ -469,6 +470,7 @@ class ApiClient {
       let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
       requests = requests.map(r => ({ ...r, status: 'COMPLETED', has_active_journey: false }));
       this.setStorage('medtrack_demo_requests', requests);
+      this.setStorage('medtrack_active_journey', null);
 
       const user = this.getStorage<any>('medtrack_user', null);
       if (user && user.ambulance_profile) {
@@ -488,9 +490,15 @@ class ApiClient {
     }
 
     if (endpoint.startsWith('/journeys/active')) {
+      const savedJourney = this.getStorage<any>('medtrack_active_journey', null);
       const requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
       const activeReq = requests.find(r => r.has_active_journey && r.journey);
-      const list = activeReq?.journey ? [activeReq.journey] : [];
+      let list: any[] = [];
+      if (savedJourney && savedJourney.status === 'ACTIVE') {
+        list = [savedJourney];
+      } else if (activeReq?.journey) {
+        list = [activeReq.journey];
+      }
       return { success: true, active_journeys: list, count: list.length } as T;
     }
 

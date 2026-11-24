@@ -55,6 +55,7 @@ export const PatientView: React.FC<PatientViewProps> = ({ onNavigateTab }) => {
         (r) => r.status === 'ACCEPTED' || 
                r.status === 'BOOKED' || 
                r.status === 'PATIENT PICKED UP' || 
+               r.status === 'PENDING' ||
                r.status === 'ON JOURNEY' || 
                r.status === 'JOURNEY_ACTIVE'
       );
@@ -155,7 +156,7 @@ export const PatientView: React.FC<PatientViewProps> = ({ onNavigateTab }) => {
   }
 
   // Determine current lifecycle state
-  const isBooked = activeRequest.status === 'ACCEPTED' || activeRequest.status === 'BOOKED';
+  const isBooked = activeRequest.status === 'ACCEPTED' || activeRequest.status === 'BOOKED' || activeRequest.status === 'PENDING';
   const isPickedUp = activeRequest.status === 'PATIENT PICKED UP';
   const isOnJourney = activeRequest.status === 'ON JOURNEY' || activeRequest.status === 'JOURNEY_ACTIVE';
 

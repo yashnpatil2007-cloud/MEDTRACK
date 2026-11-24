@@ -46,14 +46,24 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ onJourneyCompleted }
         api.getActiveJourneys(),
         api.getRequests(),
       ]);
-      setActiveJourneys(jrnRes.active_journeys || []);
+      let activeList = jrnRes.active_journeys || [];
+      if (activeList.length === 0) {
+        const reqWithJrn = (reqRes.requests || []).find(
+          (r: any) => (r.status === 'ON JOURNEY' || r.has_active_journey) && r.journey
+        );
+        if (reqWithJrn && reqWithJrn.journey) {
+          activeList = [reqWithJrn.journey];
+        }
+      }
+      setActiveJourneys(activeList);
+
       const ready = (reqRes.requests || []).filter(
-        (r) => r.status === 'ACCEPTED' || r.status === 'BOOKED' || r.status === 'PATIENT PICKED UP'
+        (r) => r.status === 'ACCEPTED' || r.status === 'BOOKED' || r.status === 'PATIENT PICKED UP' || r.status === 'PENDING'
       );
       setAcceptedRequests(ready);
 
-      if (jrnRes.active_journeys.length > 0) {
-        const jrn = jrnRes.active_journeys[0];
+      if (activeList.length > 0) {
+        const jrn = activeList[0];
         setSelectedJourney(jrn);
         if (jrn.latest_lat && jrn.latest_lng) {
           setCurrentPos([jrn.latest_lat, jrn.latest_lng]);

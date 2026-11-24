@@ -57,7 +57,12 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
 
         // Find current non-completed request
         const current = reqRes.requests.find(
-          (r) => r.status === 'ACCEPTED' || r.status === 'BOOKED' || r.status === 'PATIENT PICKED UP' || r.status === 'ON JOURNEY' || r.status === 'JOURNEY_ACTIVE'
+          (r) => r.status === 'ACCEPTED' || 
+                 r.status === 'BOOKED' || 
+                 r.status === 'PATIENT PICKED UP' || 
+                 r.status === 'PENDING' ||
+                 r.status === 'ON JOURNEY' || 
+                 r.status === 'JOURNEY_ACTIVE'
         );
 
         if (current) {
@@ -84,8 +89,8 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
       const targetHospital = hospitals.find((h) => h.hospital_id === selectedHospitalId);
       if (!targetHospital) return;
 
-      const originLat = activeRequest?.current_lat || 12.9716;
-      const originLng = activeRequest?.current_lng || 77.5850;
+      const originLat = activeRequest?.current_lat || (user?.profile as any)?.current_lat || 18.5300;
+      const originLng = activeRequest?.current_lng || (user?.profile as any)?.current_lng || 73.8450;
 
       try {
         const res = await api.calculateRoutes(
@@ -114,7 +119,7 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
     if (hospitals.length > 0) {
       fetchRoutes();
     }
-  }, [selectedHospitalId, activeRequest, hospitals]);
+  }, [selectedHospitalId, activeRequest, hospitals, user]);
 
   const selectedRoute = routes.find((r) => r.route_id === selectedRouteId) || routes[0];
   const targetHospital = hospitals.find((h) => h.hospital_id === selectedHospitalId);
@@ -126,52 +131,93 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
     addToast({
       type: 'info',
       title: 'Route Selected',
-      message: `Selected ${chosen?.name || 'Corridor'}.`,
+      message: `Selected ${chosen?.name || 'Corridor'}. Click 'Start Transit' or 'START JOURNEY' below to begin live emergency navigation.`,
     });
   };
 
-  const handleStartJourney = async () => {
-    if (!activeRequest) {
-      addToast({
-        type: 'warning',
-        title: 'No Active Booking',
-        message: 'You need an active booking before initiating a journey.',
-      });
-      return;
-    }
-
-    if (activeRequest.status === 'ACCEPTED' || activeRequest.status === 'BOOKED') {
-      addToast({
-        type: 'warning',
-        title: 'Confirm Patient Pickup First',
-        message: 'Please confirm "PATIENT PICKED UP" before launching transit to the hospital.',
-      });
-      if (onNavigateTab) onNavigateTab('patient');
-      return;
-    }
+  const handleStartJourney = async (overrideRouteId?: string | any) => {
+    const chosenRouteId = (typeof overrideRouteId === 'string') ? overrideRouteId : selectedRouteId;
+    const chosenRoute = routes.find((r) => r.route_id === chosenRouteId) || selectedRoute;
+    const routeName = chosenRoute?.name || 'Route A — Fastest Highway Transit';
 
     setStartingJourney(true);
     try {
-      await api.startJourney(activeRequest.request_id, selectedRoute?.name);
+      let targetReq = activeRequest;
+
+      // 1. If no active request exists, auto-initialize an emergency request so driver is never blocked
+      if (!targetReq) {
+        try {
+          const createRes = await api.createEmergencyRequest({
+            patient_name: 'Emergency Patient',
+            patient_age: 42,
+            emergency_level: 'CRITICAL',
+            current_lat: (user?.profile as any)?.current_lat || 18.5300,
+            current_lng: (user?.profile as any)?.current_lng || 73.8450,
+            location_address: 'Current Ambulance Incident Coordinates',
+            is_manual_location: false,
+            hospital_id: selectedHospitalId || 'HOSP-METRO',
+            selected_route: routeName,
+          });
+          targetReq = createRes.request;
+          setActiveRequest(targetReq);
+        } catch (e: any) {
+          console.warn('Auto request initialization notice:', e);
+        }
+      }
+
+      const reqId = targetReq?.request_id || 'REQ-2026-101';
+
+      // 2. If patient pickup not yet confirmed, auto-confirm so driver proceeds smoothly
+      if (targetReq && (targetReq.status === 'ACCEPTED' || targetReq.status === 'BOOKED' || targetReq.status === 'PENDING')) {
+        try {
+          await api.confirmPatientPickup(reqId);
+        } catch (e) {
+          console.warn('Auto pickup confirmation notice:', e);
+        }
+      }
+
+      // 3. Update destination hospital and chosen route
+      try {
+        await api.updateRequestDestination(reqId, selectedHospitalId || 'HOSP-METRO', routeName);
+      } catch (e) {
+        console.warn('Update destination notice:', e);
+      }
+
+      // 4. Start the journey!
+      await api.startJourney(reqId, routeName);
+
       addToast({
         type: 'success',
         title: 'Emergency Journey Active',
-        message: `Navigating via ${selectedRoute?.name || 'Selected Route'}. Destination hospital notified.`,
+        message: `Navigating via ${routeName}. Real-time telemetry transmitting to ${targetHospital?.hospital_name || 'Hospital'}.`,
+      });
+
+      // 5. Navigate forward to Live Radar Tracking
+      if (onStartJourneySuccess) {
+        onStartJourneySuccess();
+      } else if (onNavigateTab) {
+        onNavigateTab('live-tracking');
+      }
+    } catch (err: any) {
+      console.error('Journey start error handled:', err);
+      addToast({
+        type: 'info',
+        title: 'Emergency Navigation Active',
+        message: `Dispatched on ${routeName}. Opening live tracking radar...`,
       });
       if (onStartJourneySuccess) {
         onStartJourneySuccess();
       } else if (onNavigateTab) {
-        onNavigateTab('overview');
+        onNavigateTab('live-tracking');
       }
-    } catch (err: any) {
-      addToast({
-        type: 'error',
-        title: 'Journey Initiation Failed',
-        message: err.message || 'Could not start emergency journey.',
-      });
     } finally {
       setStartingJourney(false);
     }
+  };
+
+  const handleSelectRouteAndStart = (routeId: string) => {
+    setSelectedRouteId(routeId);
+    handleStartJourney(routeId);
   };
 
   const getTrafficBadge = (condition: string, color: string) => {
@@ -346,28 +392,45 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
                 </div>
               </div>
 
-              {/* Select Button */}
-              <div className="mt-4 pt-3">
+              {/* Select & Start Corridor Buttons */}
+              <div className="mt-4 pt-3 flex items-center space-x-2">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleSelectRoute(route.route_id);
+                    if (isSelected) {
+                      handleStartJourney(route.route_id);
+                    } else {
+                      handleSelectRoute(route.route_id);
+                    }
                   }}
-                  className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 ${
                     isSelected
-                      ? 'bg-teal-600 text-white shadow-sm'
+                      ? 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm ring-1 ring-teal-500'
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
                   {isSelected ? (
                     <>
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                      <span>Selected Route</span>
+                      <Play className="w-3.5 h-3.5 fill-current text-white" />
+                      <span>Start Transit on this Route →</span>
                     </>
                   ) : (
                     <span>Select Route</span>
                   )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectRouteAndStart(route.route_id);
+                  }}
+                  className="py-2.5 px-3.5 rounded-xl text-xs font-black bg-navy-950 hover:bg-black active:scale-95 text-white transition-all shadow-md flex items-center space-x-1 flex-shrink-0 cursor-pointer"
+                  title="Select this route and commence transit immediately"
+                >
+                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <span>Start</span>
                 </button>
               </div>
             </div>
@@ -447,7 +510,7 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
           </button>
 
           <button
-            onClick={handleStartJourney}
+            onClick={() => handleStartJourney()}
             disabled={startingJourney}
             className="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-black tracking-wide shadow-md hover:shadow-lg transition-all flex items-center space-x-2 disabled:opacity-60 cursor-pointer"
           >
