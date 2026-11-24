@@ -97,6 +97,11 @@ def register_hospital():
     hospital_name = data.get('hospital_name')
     hospital_id = data.get('hospital_id')
     password = data.get('password')
+    address = data.get('address') or 'Shivajinagar, Pune, Maharashtra 411005'
+    lat = data.get('latitude')
+    lng = data.get('longitude')
+    total_beds = data.get('total_beds', 50)
+    occupied_beds = data.get('occupied_beds', 20)
     
     if not all([hospital_name, hospital_id, password]):
         return jsonify({
@@ -109,6 +114,10 @@ def register_hospital():
         password = validate_password(password)
         if not hospital_name.strip():
             return jsonify({'success': False, 'message': 'Hospital name cannot be blank.'}), 400
+        if lat is not None and lng is not None:
+            latitude, longitude = validate_coordinates(lat, lng)
+        else:
+            latitude, longitude = 18.5204, 73.8567
     except ValueError as e:
         return jsonify({'success': False, 'message': str(e)}), 400
 
@@ -126,17 +135,21 @@ def register_hospital():
     db.session.add(user)
     db.session.flush()
 
-    # Default hospital coordinates around city center
+    tot_beds = int(total_beds) if str(total_beds).isdigit() else 50
+    occ_beds = int(occupied_beds) if str(occupied_beds).isdigit() else 20
+    if occ_beds > tot_beds:
+        occ_beds = tot_beds // 2
+
     hospital_profile = Hospital(
         user_id=user.id,
         hospital_id=hospital_id,
         hospital_name=hospital_name.strip(),
-        address='Main Medical Boulevard',
-        latitude=12.9716,
-        longitude=77.5946,
-        total_beds=40,
-        occupied_beds=22,
-        available_beds=18,
+        address=address.strip(),
+        latitude=latitude,
+        longitude=longitude,
+        total_beds=tot_beds,
+        occupied_beds=occ_beds,
+        available_beds=max(0, tot_beds - occ_beds),
         verification_status=HospitalVerificationStatus.PENDING
     )
     db.session.add(hospital_profile)

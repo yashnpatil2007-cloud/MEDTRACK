@@ -48,49 +48,69 @@ def seed_database():
             {
                 'id': 'HOSP-METRO',
                 'name': 'Metro Trauma & Tertiary Care Hospital',
-                'address': '804 Central Avenue, Medical District',
-                'lat': 12.9716,
-                'lng': 77.5946,
+                'address': 'Shivajinagar, Pune, Maharashtra 411005',
+                'lat': 18.5204,
+                'lng': 73.8567,
                 'total': 60,
                 'occupied': 38,
                 'status': HospitalVerificationStatus.APPROVED
             },
             {
-                'id': 'HOSP-CITYGEN',
-                'name': 'City General Hospital & Emergency Unit',
-                'address': '124 Healthcare Boulevard',
-                'lat': 12.9850,
-                'lng': 77.6100,
-                'total': 45,
-                'occupied': 30,
+                'id': 'HOSP-RUBY',
+                'name': 'Ruby Hall Clinic',
+                'address': '40, Sassoon Road, Sangamvadi, Pune, Maharashtra 411001',
+                'lat': 18.5326,
+                'lng': 73.8777,
+                'total': 120,
+                'occupied': 78,
                 'status': HospitalVerificationStatus.APPROVED
             },
             {
-                'id': 'HOSP-STJUDE',
-                'name': 'St. Jude Acute Care & Cardiac Center',
-                'address': '55 South Park Road',
-                'lat': 12.9350,
-                'lng': 77.6200,
-                'total': 50,
-                'occupied': 42,
+                'id': 'HOSP-KEM',
+                'name': 'KEM Hospital & Research Centre',
+                'address': '489, Sardar Moodliar Road, Rasta Peth, Pune, Maharashtra 411011',
+                'lat': 18.5236,
+                'lng': 73.8688,
+                'total': 90,
+                'occupied': 55,
                 'status': HospitalVerificationStatus.APPROVED
             },
             {
-                'id': 'HOSP-APOLLO',
-                'name': 'Apollo Emergency & Surgical Care',
-                'address': '210 Eastern Ring Expressway',
-                'lat': 12.9600,
-                'lng': 77.6400,
-                'total': 70,
-                'occupied': 45,
+                'id': 'HOSP-JEHANGIR',
+                'name': 'Jehangir Hospital',
+                'address': '32, Sassoon Road, Opposite Pune Railway Station, Pune 411001',
+                'lat': 18.5307,
+                'lng': 73.8762,
+                'total': 85,
+                'occupied': 48,
+                'status': HospitalVerificationStatus.APPROVED
+            },
+            {
+                'id': 'HOSP-SASSOON',
+                'name': 'Sassoon General Hospital & Medical College',
+                'address': 'Near Pune Railway Station, Jai Prakash Narayan Road, Pune 411001',
+                'lat': 18.5284,
+                'lng': 73.8739,
+                'total': 150,
+                'occupied': 95,
+                'status': HospitalVerificationStatus.APPROVED
+            },
+            {
+                'id': 'HOSP-DEENANATH',
+                'name': 'Deenanath Mangeshkar Hospital',
+                'address': 'Near Mhatre Bridge, Erandwane, Pune, Maharashtra 411004',
+                'lat': 18.5028,
+                'lng': 73.8296,
+                'total': 100,
+                'occupied': 62,
                 'status': HospitalVerificationStatus.APPROVED
             },
             {
                 'id': 'HOSP-NEW',
                 'name': 'Green Valley Regional Hospital',
-                'address': '909 West Foothill Drive',
-                'lat': 12.9200,
-                'lng': 77.5600,
+                'address': 'Bavdhan Hills, Pune, Maharashtra 411021',
+                'lat': 18.5140,
+                'lng': 73.7780,
                 'total': 35,
                 'occupied': 20,
                 'status': HospitalVerificationStatus.PENDING # Demonstrates admin approval workflow
@@ -197,19 +217,19 @@ def seed_database():
         )
         db.session.add(req1)
 
-        # 2. ACCEPTED Request for HOSP-CITYGEN from AMB-102
+        # 2. ACCEPTED Request for HOSP-RUBY from AMB-102
         req2 = EmergencyRequest(
             request_id='REQ-DEMO-002',
             ambulance_id='AMB-102',
-            hospital_id='HOSP-CITYGEN',
+            hospital_id='HOSP-RUBY',
             patient_name='Robert Taylor',
             patient_age=62,
             emergency_level=EmergencyLevel.CRITICAL,
-            current_lat=12.9450,
-            current_lng=77.6050,
-            location_address='South Commercial Plaza',
+            current_lat=18.5280,
+            current_lng=73.8500,
+            location_address='Deccan Gymkhana, Pune',
             is_manual_location=False,
-            destination_hospital_name='City General Hospital & Emergency Unit',
+            destination_hospital_name='Ruby Hall Clinic',
             selected_route='Fastest Primary Corridor',
             status=RequestStatus.ACCEPTED,
             created_at=datetime.utcnow() - timedelta(minutes=25),
@@ -217,19 +237,19 @@ def seed_database():
         )
         db.session.add(req2)
 
-        # 3. COMPLETED Request & Journey from AMB-103 to HOSP-APOLLO
+        # 3. COMPLETED Request & Journey from AMB-103 to HOSP-KEM
         req3 = EmergencyRequest(
             request_id='REQ-DEMO-003',
             ambulance_id='AMB-103',
-            hospital_id='HOSP-APOLLO',
+            hospital_id='HOSP-KEM',
             patient_name='Michael Chen',
             patient_age=28,
             emergency_level=EmergencyLevel.MEDIUM,
-            current_lat=12.9900,
-            current_lng=77.6300,
-            location_address='North Industrial Estate, Gate 4',
+            current_lat=18.5300,
+            current_lng=73.8600,
+            location_address='Shivajinagar Station, Pune',
             is_manual_location=False,
-            destination_hospital_name='Apollo Emergency & Surgical Care',
+            destination_hospital_name='KEM Hospital & Research Centre',
             selected_route='Secondary Bypass Corridor',
             status=RequestStatus.COMPLETED,
             created_at=datetime.utcnow() - timedelta(hours=2),

@@ -15,9 +15,9 @@ class Hospital(db.Model):
     hospital_name = db.Column(db.String(150), nullable=False)
     
     # Location
-    address = db.Column(db.String(255), default='Central Medical District')
-    latitude = db.Column(db.Float, nullable=False, default=12.9716)
-    longitude = db.Column(db.Float, nullable=False, default=77.5946)
+    address = db.Column(db.String(255), default='Shivajinagar, Pune, Maharashtra 411005')
+    latitude = db.Column(db.Float, nullable=False, default=18.5204)
+    longitude = db.Column(db.Float, nullable=False, default=73.8567)
     
     # Bed Availability
     total_beds = db.Column(db.Integer, default=50, nullable=False)

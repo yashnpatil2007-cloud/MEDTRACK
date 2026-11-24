@@ -16,7 +16,8 @@ import {
   Phone, 
   Navigation,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  ExternalLink
 } from 'lucide-react';
 
 interface NearbyHospitalsViewProps {
@@ -195,6 +196,23 @@ export const NearbyHospitalsView: React.FC<NearbyHospitalsViewProps> = ({ onNavi
                   <div className="flex items-start space-x-1.5 mt-2 text-xs text-slate-500">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
                     <span>{hospital.address}</span>
+                  </div>
+
+                  <div className="mt-2 flex items-center space-x-2">
+                    <a
+                      href={`https://www.google.com/maps?q=${hospital.latitude},${hospital.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] font-bold text-cyan-700 hover:text-cyan-900 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 px-2 py-0.5 rounded-md flex items-center space-x-1 transition-colors"
+                      title="Open in Google Maps"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ExternalLink className="w-2.5 h-2.5" />
+                      <span>Google Maps Location</span>
+                    </a>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {hospital.latitude.toFixed(4)}, {hospital.longitude.toFixed(4)}
+                    </span>
                   </div>
 
                   {/* Bed Capacity Indicator */}

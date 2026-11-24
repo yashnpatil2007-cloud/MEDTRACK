@@ -11,9 +11,9 @@ const DEFAULT_HOSPITALS = [
     hospital_id: 'HOSP-METRO',
     hospital_name: 'Metro General Hospital & Trauma Centre',
     verification_status: 'APPROVED',
-    total_beds: 50,
+    total_beds: 60,
     occupied_beds: 38,
-    available_beds: 12,
+    available_beds: 22,
     latitude: 18.5204,
     longitude: 73.8567,
     address: 'Shivajinagar, Pune, Maharashtra 411005',
@@ -21,28 +21,93 @@ const DEFAULT_HOSPITALS = [
   },
   {
     id: 2,
-    hospital_id: 'HOSP-CITY',
-    hospital_name: 'City Care Super Specialty Hospital',
+    hospital_id: 'HOSP-RUBY',
+    hospital_name: 'Ruby Hall Clinic',
     verification_status: 'APPROVED',
-    total_beds: 35,
-    occupied_beds: 25,
-    available_beds: 10,
-    latitude: 18.5314,
-    longitude: 73.8446,
-    address: 'FC Road, Pune, Maharashtra 411004',
+    total_beds: 120,
+    occupied_beds: 78,
+    available_beds: 42,
+    latitude: 18.5326,
+    longitude: 73.8777,
+    address: '40, Sassoon Road, Sangamvadi, Pune, Maharashtra 411001',
     is_active: true,
   },
   {
     id: 3,
-    hospital_id: 'HOSP-STJUDE',
-    hospital_name: 'St. Jude Emergency & Critical Care',
+    hospital_id: 'HOSP-KEM',
+    hospital_name: 'KEM Hospital & Research Centre',
     verification_status: 'APPROVED',
-    total_beds: 20,
-    occupied_beds: 14,
-    available_beds: 6,
-    latitude: 18.5089,
-    longitude: 73.8652,
-    address: 'Camp Area, Pune, Maharashtra 411001',
+    total_beds: 90,
+    occupied_beds: 55,
+    available_beds: 35,
+    latitude: 18.5236,
+    longitude: 73.8688,
+    address: '489, Sardar Moodliar Road, Rasta Peth, Pune, Maharashtra 411011',
+    is_active: true,
+  },
+  {
+    id: 4,
+    hospital_id: 'HOSP-JEHANGIR',
+    hospital_name: 'Jehangir Hospital',
+    verification_status: 'APPROVED',
+    total_beds: 85,
+    occupied_beds: 48,
+    available_beds: 37,
+    latitude: 18.5307,
+    longitude: 73.8762,
+    address: '32, Sassoon Road, Opposite Pune Railway Station, Pune 411001',
+    is_active: true,
+  },
+  {
+    id: 5,
+    hospital_id: 'HOSP-SASSOON',
+    hospital_name: 'Sassoon General Hospital & Medical College',
+    verification_status: 'APPROVED',
+    total_beds: 150,
+    occupied_beds: 95,
+    available_beds: 55,
+    latitude: 18.5284,
+    longitude: 73.8739,
+    address: 'Near Pune Railway Station, Jai Prakash Narayan Road, Pune 411001',
+    is_active: true,
+  },
+  {
+    id: 6,
+    hospital_id: 'HOSP-DEENANATH',
+    hospital_name: 'Deenanath Mangeshkar Hospital',
+    verification_status: 'APPROVED',
+    total_beds: 100,
+    occupied_beds: 62,
+    available_beds: 38,
+    latitude: 18.5028,
+    longitude: 73.8296,
+    address: 'Near Mhatre Bridge, Erandwane, Pune, Maharashtra 411004',
+    is_active: true,
+  },
+  {
+    id: 7,
+    hospital_id: 'HOSP-POONA',
+    hospital_name: 'Poona Hospital & Research Centre',
+    verification_status: 'APPROVED',
+    total_beds: 70,
+    occupied_beds: 40,
+    available_beds: 30,
+    latitude: 18.5132,
+    longitude: 73.8475,
+    address: '27, Ganjwe Chowk, Sadashiv Peth, Pune, Maharashtra 411030',
+    is_active: true,
+  },
+  {
+    id: 8,
+    hospital_id: 'HOSP-SAHYADRI',
+    hospital_name: 'Sahyadri Super Speciality Hospital',
+    verification_status: 'APPROVED',
+    total_beds: 75,
+    occupied_beds: 42,
+    available_beds: 33,
+    latitude: 18.5158,
+    longitude: 73.8370,
+    address: 'Plot No. 30 C, Karve Road, Deccan Gymkhana, Pune 411004',
     is_active: true,
   },
 ];
@@ -296,32 +361,39 @@ class ApiClient {
     }
 
     if (endpoint === '/register/hospital' && method === 'POST') {
+      const hospital_profile = { 
+        id: Date.now(),
+        hospital_id: body.hospital_id,
+        hospital_name: body.hospital_name, 
+        verification_status: 'APPROVED', 
+        total_beds: Number(body.total_beds) || 60, 
+        occupied_beds: Number(body.occupied_beds) || 30, 
+        available_beds: Math.max(0, (Number(body.total_beds) || 60) - (Number(body.occupied_beds) || 30)), 
+        latitude: body.latitude !== undefined ? Number(body.latitude) : 18.5204, 
+        longitude: body.longitude !== undefined ? Number(body.longitude) : 73.8567,
+        address: body.address || 'Shivajinagar, Pune, Maharashtra 411005',
+        is_active: true,
+        phone: body.phone_number || '+91 20 2612 8000'
+      };
       const user = {
         id: Date.now(),
         user_id: body.hospital_id,
         role: 'HOSPITAL',
         is_active: true,
         is_verified: true,
-        hospital_profile: { 
-          id: Date.now(),
-          hospital_id: body.hospital_id,
-          hospital_name: body.hospital_name, 
-          verification_status: 'APPROVED', 
-          total_beds: 30, 
-          occupied_beds: 15, 
-          available_beds: 15, 
-          latitude: 18.5204, 
-          longitude: 73.8567,
-          address: 'Emergency Healthcare Wing',
-          is_active: true
-        },
+        hospital_profile,
       };
       const users = this.getStorage<any[]>('medtrack_custom_users', []);
       users.push(user);
       this.setStorage('medtrack_custom_users', users);
       this.setStorage('medtrack_token', `demo-token-${user.user_id}`);
       this.setStorage('medtrack_user', user);
-      return { success: true, token: `demo-token-${user.user_id}`, user, message: 'Hospital registered successfully and ready!' } as T;
+
+      let hospitals = this.getStorage<any[]>('medtrack_demo_hospitals', DEFAULT_HOSPITALS);
+      hospitals.push(hospital_profile);
+      this.setStorage('medtrack_demo_hospitals', hospitals);
+
+      return { success: true, token: `demo-token-${user.user_id}`, user, message: 'Hospital registered successfully with verified location and beds!' } as T;
     }
 
     if (endpoint === '/me') {
@@ -812,7 +884,17 @@ class ApiClient {
     });
   }
 
-  async registerHospital(payload: { hospital_name: string; hospital_id: string; password: string }) {
+  async registerHospital(payload: { 
+    hospital_name: string; 
+    hospital_id: string; 
+    password: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    total_beds?: number;
+    occupied_beds?: number;
+    phone_number?: string;
+  }) {
     return this.request<{ success: boolean; token: string; user: any; message: string; verification_notice?: string }>('/register/hospital', {
       method: 'POST',
       body: JSON.stringify(payload),

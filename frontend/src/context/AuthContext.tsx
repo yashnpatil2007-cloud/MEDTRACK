@@ -10,7 +10,17 @@ interface AuthContextType {
   isLoading: boolean;
   login: (id: string, pass: string) => Promise<User>;
   registerAmbulance: (data: { full_name: string; age: number; phone_number: string; ambulance_id: string; password: string }) => Promise<User>;
-  registerHospital: (data: { hospital_name: string; hospital_id: string; password: string }) => Promise<{ user: User; notice?: string }>;
+  registerHospital: (data: { 
+    hospital_name: string; 
+    hospital_id: string; 
+    password: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    total_beds?: number;
+    occupied_beds?: number;
+    phone_number?: string;
+  }) => Promise<{ user: User; notice?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -88,7 +98,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const registerHospital = async (data: { hospital_name: string; hospital_id: string; password: string }) => {
+  const registerHospital = async (data: { 
+    hospital_name: string; 
+    hospital_id: string; 
+    password: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    total_beds?: number;
+    occupied_beds?: number;
+    phone_number?: string;
+  }) => {
     setIsLoading(true);
     try {
       const res = await api.registerHospital(data);

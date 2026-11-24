@@ -3,7 +3,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { api } from '../../services/api';
 import { Hospital } from '../../types';
-import { Building2, Lock, ShieldCheck, Save, MapPin } from 'lucide-react';
+import { Building2, Lock, ShieldCheck, Save, MapPin, Sparkles } from 'lucide-react';
+import { LocationPickerMap } from '../../components/LocationPickerMap';
+import { REAL_HOSPITAL_PRESETS } from '../../data/hospitalPresets';
 
 export const HospitalSettings: React.FC = () => {
   const { user, refreshUser } = useAuth();
@@ -167,17 +169,64 @@ export const HospitalSettings: React.FC = () => {
             />
           </div>
 
+          <div className="sm:col-span-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-navy-950 uppercase flex items-center space-x-1">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
+                <span>Auto-Align with Real Google Maps Hospital:</span>
+              </label>
+            </div>
+            <select
+              onChange={(e) => {
+                const preset = REAL_HOSPITAL_PRESETS.find((p) => p.id === e.target.value);
+                if (preset) {
+                  setHospitalName(preset.name);
+                  setAddress(preset.address);
+                  setLatitude(preset.latitude);
+                  setLongitude(preset.longitude);
+                  addToast({
+                    type: 'info',
+                    title: 'Preset Loaded',
+                    message: `Applied location for ${preset.name}. Click 'Save' below to confirm.`,
+                  });
+                }
+              }}
+              defaultValue=""
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold bg-slate-50 text-slate-800"
+            >
+              <option value="" disabled>-- Choose a Verified Indian Hospital Preset --</option>
+              {REAL_HOSPITAL_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.address.split(',')[0]} — {p.city})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="sm:col-span-2">
+            <LocationPickerMap
+              latitude={Number(latitude) || 18.5204}
+              longitude={Number(longitude) || 73.8567}
+              onChange={(lat, lng) => {
+                setLatitude(lat);
+                setLongitude(lng);
+              }}
+              height="220px"
+              markerTitle={hospitalName || 'Hospital Location'}
+            />
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-navy-950 uppercase mb-1">
               Emergency Map Latitude *
             </label>
             <input
               type="number"
-              step="0.0001"
+              step="any"
               required
               value={latitude}
               onChange={(e) => setLatitude(e.target.value ? parseFloat(e.target.value) : '')}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono font-bold"
             />
           </div>
 
@@ -187,11 +236,11 @@ export const HospitalSettings: React.FC = () => {
             </label>
             <input
               type="number"
-              step="0.0001"
+              step="any"
               required
               value={longitude}
               onChange={(e) => setLongitude(e.target.value ? parseFloat(e.target.value) : '')}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono font-bold"
             />
           </div>
         </div>
