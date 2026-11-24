@@ -41,6 +41,16 @@ def create_app(config_name=None):
     app.register_blueprint(routing_bp)
     app.register_blueprint(communication_bp)
 
+    # Root ping and health check for Render / deployment probes
+    @app.route('/', methods=['GET', 'HEAD'])
+    def root_ping():
+        return jsonify({
+            'status': 'online',
+            'product': 'MEDTRACK Emergency Coordination Platform',
+            'api_health': '/api/health',
+            'version': '1.0.0'
+        }), 200
+
     # Health check route
     @app.route('/api/health', methods=['GET'])
     def health_check():

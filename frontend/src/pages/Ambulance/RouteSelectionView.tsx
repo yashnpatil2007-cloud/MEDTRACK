@@ -139,6 +139,15 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
     const chosenRouteId = (typeof overrideRouteId === 'string') ? overrideRouteId : selectedRouteId;
     const chosenRoute = routes.find((r) => r.route_id === chosenRouteId) || selectedRoute;
     const routeName = chosenRoute?.name || 'Route A — Fastest Highway Transit';
+    const targetHosp = hospitals.find((h) => h.hospital_id === selectedHospitalId);
+
+    const originLat = activeRequest?.current_lat || (user?.profile as any)?.current_lat || 18.6750;
+    const originLng = activeRequest?.current_lng || (user?.profile as any)?.current_lng || 73.8980;
+
+    const destLat = targetHosp?.latitude || 18.5326;
+    const destLng = targetHosp?.longitude || 73.8777;
+    const hospId = targetHosp?.hospital_id || selectedHospitalId || 'HOSP-RUBY';
+    const hospName = targetHosp?.hospital_name || 'Ruby Hall Clinic';
 
     setStartingJourney(true);
     try {
@@ -151,11 +160,11 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
             patient_name: 'Emergency Patient',
             patient_age: 42,
             emergency_level: 'CRITICAL',
-            current_lat: (user?.profile as any)?.current_lat || 18.5300,
-            current_lng: (user?.profile as any)?.current_lng || 73.8450,
-            location_address: 'Current Ambulance Incident Coordinates',
+            current_lat: originLat,
+            current_lng: originLng,
+            location_address: 'Alandi / Pune Incident Coordinates',
             is_manual_location: false,
-            hospital_id: selectedHospitalId || 'HOSP-METRO',
+            hospital_id: hospId,
             selected_route: routeName,
           });
           targetReq = createRes.request;
@@ -178,18 +187,28 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
 
       // 3. Update destination hospital and chosen route
       try {
-        await api.updateRequestDestination(reqId, selectedHospitalId || 'HOSP-METRO', routeName);
+        await api.updateRequestDestination(reqId, hospId, routeName);
       } catch (e) {
         console.warn('Update destination notice:', e);
       }
 
-      // 4. Start the journey!
-      await api.startJourney(reqId, routeName);
+      // 4. Start the journey with origin, destination, and exact route polyline geometry!
+      await api.startJourney(reqId, routeName, {
+        hospital_id: hospId,
+        destination_hospital_name: hospName,
+        start_lat: originLat,
+        start_lng: originLng,
+        dest_lat: destLat,
+        dest_lng: destLng,
+        duration_mins: chosenRoute?.duration_mins,
+        distance_km: chosenRoute?.distance_km,
+        route_geometry: chosenRoute?.coordinates,
+      });
 
       addToast({
         type: 'success',
         title: 'Emergency Journey Active',
-        message: `Navigating via ${routeName}. Real-time telemetry transmitting to ${targetHospital?.hospital_name || 'Hospital'}.`,
+        message: `Navigating via ${routeName}. Real-time telemetry transmitting to ${hospName}.`,
       });
 
       // 5. Navigate forward to Live Radar Tracking
@@ -244,13 +263,13 @@ export const RouteSelectionView: React.FC<RouteSelectionViewProps> = ({
   };
 
   const ambulanceCoordinates: [number, number] = [
-    activeRequest?.current_lat || 12.9716,
-    activeRequest?.current_lng || 77.5850,
+    activeRequest?.current_lat || (user?.profile as any)?.current_lat || 18.6750,
+    activeRequest?.current_lng || (user?.profile as any)?.current_lng || 73.8980,
   ];
 
   const hospitalCoordinates: [number, number] = [
-    targetHospital?.latitude || 12.9716,
-    targetHospital?.longitude || 77.5946,
+    targetHospital?.latitude || 18.5326,
+    targetHospital?.longitude || 73.8777,
   ];
 
   return (

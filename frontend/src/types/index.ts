@@ -125,6 +125,7 @@ export interface Journey {
   request_id: string;
   ambulance_id: string;
   hospital_id: string;
+  destination_hospital_name?: string;
   status: 'ACTIVE' | 'COMPLETED' | 'ABORTED';
   started_at: string;
   completed_at?: string | null;

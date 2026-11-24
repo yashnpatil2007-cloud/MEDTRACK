@@ -478,7 +478,16 @@ class ApiClient {
       const parts = endpoint.split('/');
       const reqId = parts[2];
       let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
-      const updated = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, hospital_id: body.hospital_id, selected_route: body.selected_route || r.selected_route } : r);
+      const hospitals = this.getStorage<any[]>('medtrack_demo_hospitals', DEFAULT_HOSPITALS);
+      const targetHosp = hospitals.find(h => h.hospital_id === body.hospital_id);
+      const hospName = targetHosp?.hospital_name || body.destination_hospital_name || body.hospital_id;
+
+      const updated = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { 
+        ...r, 
+        hospital_id: body.hospital_id, 
+        destination_hospital_name: hospName,
+        selected_route: body.selected_route || r.selected_route 
+      } : r);
       this.setStorage('medtrack_demo_requests', updated);
       return { success: true, request: updated.find(r => r.request_id === reqId || String(r.id) === reqId), message: 'Destination hospital updated successfully.' } as T;
     }
@@ -504,34 +513,85 @@ class ApiClient {
     if (endpoint.includes('/start') && method === 'POST') {
       const parts = endpoint.split('/');
       const reqId = parts[2] || 'REQ-2026-101';
-      const routeSelected = body.selected_route || 'Route A — Fastest Highway Transit';
+      let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
+      const targetReq = requests.find(r => r.request_id === reqId || String(r.id) === reqId);
+      const hospitals = this.getStorage<any[]>('medtrack_demo_hospitals', DEFAULT_HOSPITALS);
+
+      // Determine target hospital accurately from payload, request, or default
+      const targetHospId = body.hospital_id || targetReq?.hospital_id || 'HOSP-RUBY';
+      const targetHosp = hospitals.find(h => h.hospital_id === targetHospId) || 
+        hospitals.find(h => h.hospital_id === 'HOSP-RUBY') || 
+        DEFAULT_HOSPITALS[1]; // Ruby Hall Clinic
+
+      const hospName = body.destination_hospital_name || targetHosp?.hospital_name || 'Ruby Hall Clinic';
+      const destLat = Number(body.dest_lat || targetHosp?.latitude || 18.5326);
+      const destLng = Number(body.dest_lng || targetHosp?.longitude || 73.8777);
+
+      const user = this.getStorage<any>('medtrack_user', null);
+      const startLat = Number(body.start_lat || targetReq?.current_lat || (user?.profile as any)?.current_lat || 18.6750);
+      const startLng = Number(body.start_lng || targetReq?.current_lng || (user?.profile as any)?.current_lng || 73.8980);
+
+      const routeSelected = body.selected_route || targetReq?.selected_route || 'Route A — Fastest Highway Transit';
+
+      let routeGeomStr = body.route_geometry;
+      if (!routeGeomStr) {
+        // Interpolate smooth transit path between actual start and destination coordinates
+        const steps = 15;
+        const coords: [number, number][] = [];
+        for (let i = 0; i <= steps; i++) {
+          const factor = i / steps;
+          const curve = Math.sin(factor * Math.PI) * 0.005;
+          coords.push([
+            Number((startLat + (destLat - startLat) * factor + curve).toFixed(5)),
+            Number((startLng + (destLng - startLng) * factor - curve * 0.5).toFixed(5))
+          ]);
+        }
+        routeGeomStr = JSON.stringify(coords);
+      } else if (typeof routeGeomStr !== 'string') {
+        routeGeomStr = JSON.stringify(routeGeomStr);
+      }
+
       const journey = {
         id: Date.now(),
         journey_id: `JRN-2026-${Math.floor(100 + Math.random() * 900)}`,
         request_id: reqId,
-        ambulance_id: 'AMB-101',
-        hospital_id: 'HOSP-METRO',
+        ambulance_id: user?.ambulance_profile?.ambulance_id || user?.user_id || 'AMB-101',
+        hospital_id: targetHospId,
+        destination_hospital_name: hospName,
         status: 'ACTIVE',
         started_at: new Date().toISOString(),
-        start_lat: 18.5300,
-        start_lng: 73.8450,
-        dest_lat: 18.5204,
-        dest_lng: 73.8567,
-        current_lat: 18.5270,
-        current_lng: 73.8490,
+        start_lat: startLat,
+        start_lng: startLng,
+        dest_lat: destLat,
+        dest_lng: destLng,
+        current_lat: startLat,
+        current_lng: startLng,
+        latest_lat: startLat,
+        latest_lng: startLng,
         current_route: routeSelected,
         route_name: routeSelected,
+        route_geometry: routeGeomStr,
+        estimated_duration_mins: body.duration_mins || 22.0,
+        estimated_distance_km: body.distance_km || 17.5,
         speed: 52.0,
       };
 
-      let requests = this.getStorage<any[]>('medtrack_demo_requests', DEFAULT_REQUESTS);
-      requests = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { ...r, status: 'ON JOURNEY', has_active_journey: true, journey } : r);
+      requests = requests.map(r => (r.request_id === reqId || String(r.id) === reqId) ? { 
+        ...r, 
+        hospital_id: targetHospId,
+        destination_hospital_name: hospName,
+        status: 'ON JOURNEY', 
+        has_active_journey: true, 
+        selected_route: routeSelected,
+        journey 
+      } : r);
       this.setStorage('medtrack_demo_requests', requests);
       this.setStorage('medtrack_active_journey', journey);
 
-      const user = this.getStorage<any>('medtrack_user', null);
       if (user && user.ambulance_profile) {
         user.ambulance_profile.status = 'ON JOURNEY';
+        user.ambulance_profile.current_lat = startLat;
+        user.ambulance_profile.current_lng = startLng;
         this.setStorage('medtrack_user', user);
       }
 
@@ -1018,10 +1078,37 @@ class ApiClient {
   }
 
   // Journeys & GPS Telemetry
-  async startJourney(request_id: string, selected_route?: string) {
+  async startJourney(
+    request_id: string,
+    selected_route?: string,
+    options?: {
+      hospital_id?: string;
+      destination_hospital_name?: string;
+      start_lat?: number;
+      start_lng?: number;
+      dest_lat?: number;
+      dest_lng?: number;
+      duration_mins?: number;
+      distance_km?: number;
+      route_geometry?: [number, number][] | string;
+    }
+  ) {
     return this.request<{ success: boolean; journey: any; message: string }>(`/journeys/${request_id}/start`, {
       method: 'POST',
-      body: JSON.stringify({ selected_route }),
+      body: JSON.stringify({
+        selected_route,
+        hospital_id: options?.hospital_id,
+        destination_hospital_name: options?.destination_hospital_name,
+        start_lat: options?.start_lat,
+        start_lng: options?.start_lng,
+        dest_lat: options?.dest_lat,
+        dest_lng: options?.dest_lng,
+        duration_mins: options?.duration_mins,
+        distance_km: options?.distance_km,
+        route_geometry: typeof options?.route_geometry === 'string'
+          ? options.route_geometry
+          : (options?.route_geometry ? JSON.stringify(options.route_geometry) : undefined),
+      }),
     });
   }
 

@@ -53,6 +53,42 @@ export const ActiveAmbulances: React.FC = () => {
     }
   }
 
+  // Dynamic route fallback if geometry was not pre-populated
+  const [dynamicRouteCoords, setDynamicRouteCoords] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    if (!selectedJourney) return;
+
+    if (selectedJourney.route_geometry) {
+      try {
+        const parsed = JSON.parse(selectedJourney.route_geometry);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDynamicRouteCoords(parsed);
+          return;
+        }
+      } catch {
+        // fallback to live routing calculation
+      }
+    }
+
+    const startLat = selectedJourney.start_lat || 18.6750;
+    const startLng = selectedJourney.start_lng || 73.8980;
+    const destLat = selectedJourney.dest_lat || 18.5326;
+    const destLng = selectedJourney.dest_lng || 73.8777;
+
+    api.calculateRoutes(startLat, startLng, destLat, destLng)
+      .then((res) => {
+        if (res.routes && res.routes.length > 0 && res.routes[0].coordinates.length > 0) {
+          setDynamicRouteCoords(res.routes[0].coordinates);
+        }
+      })
+      .catch((err) => {
+        console.warn('Fallback routing fetch notice:', err);
+      });
+  }, [selectedJourney?.journey_id, selectedJourney?.route_geometry]);
+
+  const activeRouteCoordinates = dynamicRouteCoords.length > 0 ? dynamicRouteCoords : parsedRoute;
+
   const currentPos: [number, number] | null = selectedJourney?.latest_lat && selectedJourney?.latest_lng
     ? [selectedJourney.latest_lat, selectedJourney.latest_lng]
     : selectedJourney
@@ -128,9 +164,9 @@ export const ActiveAmbulances: React.FC = () => {
                 <LeafletMap
                   ambulancePos={currentPos}
                   hospitalPos={[selectedJourney.dest_lat, selectedJourney.dest_lng]}
-                  hospitalName={selectedJourney.hospital_id}
+                  hospitalName={selectedJourney.destination_hospital_name || selectedJourney.hospital_id}
                   ambulanceId={selectedJourney.ambulance_id}
-                  routeCoordinates={parsedRoute}
+                  routeCoordinates={activeRouteCoordinates}
                   accuracy={selectedJourney.latest_accuracy}
                   lastUpdated={selectedJourney.latest_telemetry_time}
                   isLiveTracking={true}

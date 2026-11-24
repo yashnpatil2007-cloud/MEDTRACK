@@ -252,6 +252,42 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ onJourneyCompleted }
     }
   }
 
+  // Dynamic route fallback if geometry was not pre-populated
+  const [dynamicRouteCoords, setDynamicRouteCoords] = useState<[number, number][]>([]);
+
+  useEffect(() => {
+    if (!selectedJourney) return;
+
+    if (selectedJourney.route_geometry) {
+      try {
+        const parsed = JSON.parse(selectedJourney.route_geometry);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDynamicRouteCoords(parsed);
+          return;
+        }
+      } catch (e) {
+        // fallback to live routing calculation
+      }
+    }
+
+    const startLat = selectedJourney.start_lat || currentPos?.[0] || 18.6750;
+    const startLng = selectedJourney.start_lng || currentPos?.[1] || 73.8980;
+    const destLat = selectedJourney.dest_lat || 18.5326;
+    const destLng = selectedJourney.dest_lng || 73.8777;
+
+    api.calculateRoutes(startLat, startLng, destLat, destLng)
+      .then((res) => {
+        if (res.routes && res.routes.length > 0 && res.routes[0].coordinates.length > 0) {
+          setDynamicRouteCoords(res.routes[0].coordinates);
+        }
+      })
+      .catch((err) => {
+        console.warn('Fallback routing fetch notice:', err);
+      });
+  }, [selectedJourney?.journey_id, selectedJourney?.route_geometry]);
+
+  const activeRouteCoordinates = dynamicRouteCoords.length > 0 ? dynamicRouteCoords : parsedRoute;
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -344,9 +380,9 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ onJourneyCompleted }
             <LeafletMap
               ambulancePos={currentPos}
               hospitalPos={[selectedJourney.dest_lat, selectedJourney.dest_lng]}
-              hospitalName={selectedJourney.hospital_id}
+              hospitalName={selectedJourney.destination_hospital_name || selectedJourney.hospital_id}
               ambulanceId={selectedJourney.ambulance_id}
-              routeCoordinates={parsedRoute}
+              routeCoordinates={activeRouteCoordinates}
               accuracy={currentAccuracy}
               lastUpdated={selectedJourney.latest_telemetry_time}
               isLiveTracking={isWatchingGps}
@@ -383,7 +419,7 @@ export const LiveTracking: React.FC<LiveTrackingProps> = ({ onJourneyCompleted }
                 </div>
                 <div>
                   <span className="text-slate-400 font-medium">Destination Emergency Unit:</span>
-                  <p className="font-semibold text-navy-950">{selectedJourney.hospital_id}</p>
+                  <p className="font-semibold text-navy-950">{selectedJourney.destination_hospital_name || selectedJourney.hospital_id}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
                   <div className="p-2.5 rounded-lg bg-slate-50">

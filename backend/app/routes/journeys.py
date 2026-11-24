@@ -44,26 +44,59 @@ def start_journey(request_id):
     data = request.get_json(silent=True) or {}
     chosen_route_name = data.get('selected_route') or req_record.selected_route
 
-    hospital = Hospital.query.filter_by(hospital_id=req_record.hospital_id).first()
+    # Support destination hospital override from start journey payload
+    target_hospital_id = data.get('hospital_id') or req_record.hospital_id
+    hospital = Hospital.query.filter_by(hospital_id=target_hospital_id).first()
+    if not hospital:
+        hospital = Hospital.query.filter_by(hospital_id=req_record.hospital_id).first()
+    if not hospital:
+        hospital = Hospital.query.first()
     if not hospital:
         return jsonify({'success': False, 'message': 'Target hospital not found.'}), 404
 
-    # Fetch real route coordinates from routing engine
-    routes = fetch_osrm_routes(req_record.current_lat, req_record.current_lng, hospital.latitude, hospital.longitude)
-    
-    # Match route or take primary
+    # Update request record destination to stay in sync
+    req_record.hospital_id = hospital.hospital_id
+    req_record.destination_hospital_name = hospital.hospital_name
+
+    # Support start coordinates passed from ambulance GPS (e.g. Alandi coordinates)
+    if data.get('start_lat') is not None and data.get('start_lng') is not None:
+        try:
+            req_record.current_lat = float(data['start_lat'])
+            req_record.current_lng = float(data['start_lng'])
+        except (ValueError, TypeError):
+            pass
+    elif ambulance.current_lat and ambulance.current_lng:
+        req_record.current_lat = ambulance.current_lat
+        req_record.current_lng = ambulance.current_lng
+
+    # Use route geometry if passed by frontend, or calculate via OSRM
+    passed_geom = data.get('route_geometry')
     selected_route_obj = None
-    for r in routes:
-        if r['name'] == chosen_route_name or r['route_id'] == chosen_route_name:
-            selected_route_obj = r
-            break
-    if not selected_route_obj and routes:
-        selected_route_obj = routes[0]
-    
-    route_geom = json.dumps(selected_route_obj['coordinates']) if selected_route_obj else "[]"
-    est_duration = selected_route_obj['duration_mins'] if selected_route_obj else 15.0
-    est_distance = selected_route_obj['distance_km'] if selected_route_obj else 8.0
-    actual_route_name = selected_route_obj['name'] if selected_route_obj else chosen_route_name
+
+    if passed_geom:
+        if isinstance(passed_geom, list) and len(passed_geom) > 0:
+            route_geom = json.dumps(passed_geom)
+        elif isinstance(passed_geom, str):
+            route_geom = passed_geom
+        else:
+            route_geom = "[]"
+        est_duration = float(data.get('duration_mins') or 15.0)
+        est_distance = float(data.get('distance_km') or 8.0)
+        actual_route_name = chosen_route_name
+    else:
+        # Fetch real route coordinates from routing engine
+        routes = fetch_osrm_routes(req_record.current_lat, req_record.current_lng, hospital.latitude, hospital.longitude)
+        for r in routes:
+            if r['name'] == chosen_route_name or r['route_id'] == chosen_route_name:
+                selected_route_obj = r
+                break
+        if not selected_route_obj and routes:
+            selected_route_obj = routes[0]
+        
+        route_geom = json.dumps(selected_route_obj['coordinates']) if selected_route_obj else "[]"
+        est_duration = selected_route_obj['duration_mins'] if selected_route_obj else 15.0
+        est_distance = selected_route_obj['distance_km'] if selected_route_obj else 8.0
+        actual_route_name = selected_route_obj['name'] if selected_route_obj else chosen_route_name
 
     # Transition state to ON_JOURNEY
     req_record.selected_route = actual_route_name
